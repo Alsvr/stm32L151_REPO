@@ -32,6 +32,7 @@
 #include "delay.h"
 #include "GPIO.h"
 #include "lpm.h"
+#include "lowpower.h"
 /** @addtogroup STM32L1xx_StdPeriph_Examples
   * @{
   */
@@ -170,18 +171,7 @@ int main(void)
 		Led_Open();
 		delay_ms(10);
 		Led_Close();
-		    /* Enable Wakeup Counter */
-        RTC_WakeUpCmd(ENABLE);
-		PWR_EnterSTOPMode(PWR_Regulator_LowPower, PWR_STOPEntry_WFI);
-		RTC_WakeUpCmd(DISABLE);
-		//PWR_EnterSTANDBYMode();
-
-	
-    /* Enable Wakeup Counter */
-    
-    /* After wake-up from STOP reconfigure the system clock */
-    /* Enable HSE */
-
+        Enter_Stop_Mode();
 	}
 }
 

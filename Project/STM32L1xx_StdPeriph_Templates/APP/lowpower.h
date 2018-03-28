@@ -4,7 +4,7 @@
 
 
 void Enter_Stop_Mode(void);
-
+void To_Exit_Stop(void);
 #endif
 
 

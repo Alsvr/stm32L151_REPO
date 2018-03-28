@@ -131,6 +131,7 @@ int main(void)
     GPIO_InitTypeDef GPIO_InitStructure;  	
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
 	delay_init(32);
+	
 	//USART_Configuration();
 	//init_wireless(0xC0,0x1210,115200,80);
 	
@@ -138,30 +139,9 @@ int main(void)
 	//PWR_EnterSleepMode();
 	//DBGMCU_Config(DBGMCU_STOP,ENABLE);
 
-//RCC_AHBPeriphClockLPModeCmd(RCC_AHBPeriph_GPIOA,ENABLE);
- 
-//    RCC_AHBPeriphResetCmd(RCC_AHBPeriph_GPIOA, ENABLE);  
-//    RCC_AHBPeriphResetCmd(RCC_AHBPeriph_GPIOB, ENABLE);  
-//    RCC_AHBPeriphResetCmd(RCC_AHBPeriph_GPIOH, ENABLE);
-//	RCC_AHBPeriphResetCmd(RCC_AHBPeriph_GPIOC, ENABLE);  		
 
-
-
-//    GPIO_DeInit(GPIOA);
-//    GPIO_DeInit(GPIOB);    
-//    GPIO_DeInit(GPIOC);
          
-    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA|RCC_AHBPeriph_GPIOB|RCC_AHBPeriph_GPIOC|RCC_AHBPeriph_GPIOH,ENABLE);
 
-    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_All;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_40MHz;
-    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AIN;
-    GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
-	
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-    GPIO_Init(GPIOC, &GPIO_InitStructure); 
-	GPIO_Init(GPIOH, &GPIO_InitStructure);
 	RTC_Config();
 	
 	while (1)
@@ -172,6 +152,9 @@ int main(void)
 		delay_ms(10);
 		Led_Close();
         Enter_Stop_Mode();
+		To_Exit_Stop();
+			
+		
 	}
 }
 

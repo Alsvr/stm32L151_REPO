@@ -36,7 +36,7 @@
 //#include "stm32l1xx_comp.h"
 //#include "stm32l1xx_crc.h"
 //#include "stm32l1xx_dac.h"
-//#include "stm32l1xx_dbgmcu.h"
+#include "stm32l1xx_dbgmcu.h"
 //#include "stm32l1xx_dma.h"
 #include "stm32l1xx_exti.h"
 //#include "stm32l1xx_flash.h"

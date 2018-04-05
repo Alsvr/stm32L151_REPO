@@ -39,7 +39,7 @@ void delay_us(uint32_t nus)
 //nms<=0xffffff*8*1000/SYSCLK
 //SYSCLK单位为Hz,nms单位为ms
 //对72M条件下,nms<=1864 
-void delay_ms(uint16_t nms)
+void delay_ms(uint32_t nms)
 {	 	
     uint32_t temp;		   
 	SysTick->LOAD=(uint32_t)nms*fac_ms;//时间加载(SysTick->LOAD为24bit)

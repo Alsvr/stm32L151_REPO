@@ -17,11 +17,22 @@ void Enter_Stop_Mode(void)
     GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AIN;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
 	
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
     GPIO_Init(GPIOC, &GPIO_InitStructure); 
 	GPIO_Init(GPIOH, &GPIO_InitStructure);
-	GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_All&(~(GPIO_Pin_13|GPIO_Pin_14));
+	
+	
+	
+	//Wireless enter low power 
+//433M AUX --->PA1
+//433M_MO  --->PB8
+//433M_M1  --->PB9
+//433M_POWER  --->PB10
+//433M_TX  --->PA2
+//433M_RX  --->PA3
+    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_All&(~(GPIO_Pin_1|GPIO_Pin_2|GPIO_Pin_3|GPIO_Pin_9|GPIO_Pin_10));
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
+    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_All&(~(GPIO_Pin_8|GPIO_Pin_9|GPIO_Pin_10));
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
 	
 	/* Enable Wakeup Counter */
 	RTC_WakeUpCmd(ENABLE);

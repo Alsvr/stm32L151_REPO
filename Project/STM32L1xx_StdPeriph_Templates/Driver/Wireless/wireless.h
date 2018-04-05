@@ -20,5 +20,6 @@ void init_wireless(	uint8_t HEAD,
 					uint32_t baund,
 					uint8_t channel);
 void Wireless_wakeup_mode(void);
-
+void Wireless_power_down(void);
+void Wireless_power_on(void);
 #endif

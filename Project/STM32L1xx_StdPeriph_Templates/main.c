@@ -32,6 +32,7 @@
 #include "delay.h"
 #include "GPIO.h"
 #include "lpm.h"
+#include "adc.h"
 #include "lowpower.h"
 /** @addtogroup STM32L1xx_StdPeriph_Examples
   * @{
@@ -136,8 +137,13 @@ int main(void)
 	//init_wireless(0xC0,0x1210,115200,80);
 	
 	//printf("USART1 TEST\r\n");
-	//PWR_EnterSleepMode();
-	//DBGMCU_Config(DBGMCU_STOP,ENABLE);
+    StartADC();
+	while(1)
+	{
+		
+		delay_ms(1000);
+	}
+
 
 
          
@@ -146,15 +152,26 @@ int main(void)
 	
 	while (1)
 	{
-		Led_Init();
-		delay_init(32);
-		Led_Open();
-		delay_ms(10);
-		Led_Close();
+		//Led_Init();
+		//delay_init(32);
+		//Led_Open();
+		//delay_ms(10);
+		//Led_Close();
+		//Wireless_power_down();
         Enter_Stop_Mode();
-		To_Exit_Stop();
-			
 		
+		To_Exit_Stop();
+		//Wireless_power_on();
+		delay_ms(1000);
+//		delay_ms(30000);	
+//		delay_ms(30000);
+//		delay_ms(30000);
+//		delay_ms(30000);
+//		delay_ms(30000);
+//		delay_ms(30000);
+//		delay_ms(30000);
+//		delay_ms(30000);
+//		delay_ms(30000);
 	}
 }
 

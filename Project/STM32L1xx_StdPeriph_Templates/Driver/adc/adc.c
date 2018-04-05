@@ -1,126 +1,193 @@
 #include "adc.h"
-//#include "delay.h"					   
-													   
-void  Adc_Init(void)
-{    
-	//先初始化IO口
-// 	RCC->APB2ENR|=1<<2;    //使能PORTA口时钟 
-//     
-//    GPIOA->MODER |= 3<<(1*2);//PA1 anolog输入
-//    GPIOA->OTYPER |= 1<<1;
-//    GPIOA->OSPEEDR |= 1<<(1*2);
-//    GPIOA->PUPDR |= 1<<(1*2);
-  
-    RCC->CR |= 1<<0; 
-	while(!(RCC->CR&(1<<1)));//等待HSI时钟开启完
-	RCC->APB2RSTR |= 1<<9;   //ADC1复位
-	RCC->APB2RSTR &= ~(1<<9);//复位结束	
-	RCC->APB2ENR  |= 1<<9;   //ADC1时钟使能
-    
-    ADC1->SMPR2 |= 7<<18;   
-    ADC->CCR  |= 1<<16;
-//	ADC->CCR |= 1<<23;
-	
-	ADC1->CR1 &= ~((3<<24)|(1<<8));   
-	ADC1->CR1 |= 1<<8;  
-	ADC1->CR1 &= ~(3<<24); //12位精度 
-		
-	ADC1->CR2 &= ~((1<<1)|(1<<11)|(2<<28)|(15<<16)); 
-	ADC1->CR2 |= (1<<1);  //SET CONT, ALIGN, EXTEN and EXTSEL bits
-	ADC1->SQR1 &= ~(0x1F<<20);   /* Clear L bits */
-	ADC1->SQR1 |= (0<<20);   /* Set L bits *///1个规则转换序	
-		
-	ADC1->CR1 |= (1<<8);    //扫描模式
-	ADC1->CR2 |= (1<<1);    //连续转换模式
-	ADC1->CR2 &= ~(3<<28); 	//Trigger detection disabled
-	ADC1->CR2 &= ~(1<<11);  //右对齐
-   
-	
-	ADC1->SMPR3 |= (1<<24); //  
-    
-    
-//	//通道10/11设置			 
-//	RCC->APB2ENR  |= 1<<9;    //ADC1时钟使能	  
-//	RCC->APB2RSTR |= 1<<9;   //ADC1复位
-//	RCC->APB2RSTR &=~(1<<9);//复位结束	    
-//	RCC->CFGR &= ~(3<<14);   //分频因子清零	
-//	//SYSCLK/DIV2=12M ADC时钟设置为12M,ADC最大时钟不能超过14M!
-//	//否则将导致ADC准确度下降! 
-//	RCC->CFGR |= 2<<14;      	 
-//	ADC1->CR1 &= 0XF0FFFF;   //工作模式清零
-//	ADC1->CR1 |= 0<<16;      //独立工作模式  
-//	ADC1->CR1 &= ~(1<<8);    //非扫描模式	  
-//	ADC1->CR2 &= ~(1<<1);    //单次转换模式
-//	ADC1->CR2 &= ~(7<<17);	   
-//	ADC1->CR2 |= 7<<17;	   //软件控制转换  
-//	ADC1->CR2 |= 1<<20;      //使用用外部触发(SWSTART)!!!	必须使用一个事件来触发
-//	ADC1->CR2 &= ~(1<<11);   //右对齐	 
-//	ADC->CCR  |= 1<<23;      //使能温度传感器
+#include "GPIO.h"
+//#include "delay.h"
+#include "delay.h"
+//ADC_IN    PA8
+//ADC_CON   PB5
+//ADC_SCLK  PB13
+//ADC_DOUT  PB14
+#define GPIO_ADC_CON GPIO_Pin_5
+#define PORT_ADC_CON GPIOB
 
-//	ADC1->SQR1 &= ~(0XF<<20);
-//	ADC1->SQR1 &= 0<<20;     //1个转换在规则序列中 也就是只转换规则序列1 			   
-//	//设置通道1的采样时间
-//	ADC1->SMPR2 &= ~(7<<3);  //通道1采样时间清空	  
-// 	ADC1->SMPR2 |= 7<<3;     //通道1  239.5周期,提高采样时间可以提高精确度	 
+#define GPIO_ADC_IN  GPIO_Pin_8
+#define PORT_ADC_IN GPIOA
 
-// 	ADC1->SMPR1 &= ~(7<<18);  //清除通道16原来的设置	 
-//	ADC1->SMPR1 |= 7<<18;     //通道16  239.5周期,提高采样时间可以提高精确度	 
+#define GPIO_ADC_SCLK GPIO_Pin_13
+#define PORT_ADC_SCLK GPIOB
 
-//	ADC1->CR2 |= 1<<0;	   //开启AD转换器	 
-//	ADC1->CR2 |= 1<<3;       //使能复位校准  
-//	while(ADC1->CR2&1<<3); //等待校准结束 			 
-//    //该位由软件设置并由硬件清除。在校准寄存器被初始化后该位将被清除。 		 
-//	ADC1->CR2 |= 1<<2;        //开启AD校准	   
-//	while(ADC1->CR2&1<<2);  //等待校准结束
-//	//该位由软件设置以开始校准，并在校准结束时由硬件清除  
-}				  
-//获得ADC值
-//ch:通道值 0~16
-//返回值:转换结果
-u16 Get_Adc(u8 ch)   
+#define GPIO_ADC_DOUT GPIO_Pin_14
+#define PORT_ADC_DOUT GPIOB
+
+uint16_t adc_buffer[4096];
+uint32_t Sample(uint16_t speed,uint32_t count) //K
 {
-//	//设置转换序列	  		 
-//	ADC1->SQR3 &= 0XFFFFFFE0;//规则序列1 通道ch
-//	ADC1->SQR3 |=ch;		  			    
-//	ADC1->CR2 |= 1<<22;       //启动规则转换通道 
-//	while(!(ADC1->SR&1<<1));//等待转换结束	 	   
-//	return ADC1->DR;		//返回adc值	
-    
-    ADC1->SQR3  &= ~(0X1F<<15);
-	ADC1->SQR3  |= (ch<<15);//转换通道8
-//	ADC1->CR2 |= 1<<22;       //启动规则转换通道 
-	ADC1->CR2 |= 1<<0; //SET ADCON
-	ADC1->CR2 |= 1<<30;//软件启动转换	
-	
-	while(!(ADC1->SR&1<<1));//等待转换结束	 	   
-	return ADC1->DR;		//返回adc值	
-    
-    
-    
-    
-}
-//获取通道ch的转换值，取times次,然后平均 
-//ch:通道编号
-//times:获取次数
-//返回值:通道ch的times次转换结果平均值
-u16 Get_Adc_Average(u8 ch,u8 times)
-{
-	u32 temp_val=0;
-	u8 t;
-	for(t=0;t<times;t++)
+	uint16_t adc_us,i;
+	uint8_t j;
+	uint32_t adc_data=0;
+	adc_us=1000/speed;
+	GPIO_SetBits(PORT_ADC_IN,GPIO_ADC_IN);  //indecate that adc work as 4 wire
+	delay_us(100);
+	GPIO_ResetBits(PORT_ADC_DOUT,GPIO_ADC_SCLK);
+	for(i=0;i<count;i++)
 	{
-		temp_val+=Get_Adc(ch);
-//		delay_ms(5);
+		GPIO_SetBits(PORT_ADC_CON,GPIO_ADC_CON);
+		delay_us(adc_us>>1);
+		GPIO_ResetBits(PORT_ADC_CON,GPIO_ADC_CON);
+		delay_us(1);
+		for(j=0;j<18;j++)
+		{
+			//GPIO_SetBits(PORT_ADC_SCLK,GPIO_ADC_SCLK);
+			PORT_ADC_SCLK->BSRRL = GPIO_ADC_SCLK;
+			//adc_data=(adc_data<<1)+GPIO_ReadInputDataBit(PORT_ADC_DOUT,GPIO_ADC_DOUT);
+			adc_data=(adc_data<<1)|(PORT_ADC_DOUT->IDR & GPIO_ADC_DOUT);
+			PORT_ADC_SCLK->BSRRH = GPIO_ADC_SCLK;
+			//GPIO_ResetBits(PORT_ADC_SCLK,GPIO_ADC_SCLK);
+		}
+		adc_buffer[i]=(adc_data>>14);//&0xFFFC0000;
+		delay_us(adc_us>>1);
 	}
-	return temp_val/times;
-} 
-	 
+	
+}
 
+__inline uint32_t Sampleone(void) //K
+{
+	uint8_t j=0;
+	uint32_t adc_data=0;
+	GPIO_ResetBits(PORT_ADC_SCLK,GPIO_ADC_SCLK);
+	delay_us(10);
+	for(j=0;j<19;j++)
+	{
+		PORT_ADC_SCLK->BSRRL = GPIO_ADC_SCLK;
+		__nop();
+		PORT_ADC_SCLK->BSRRH = GPIO_ADC_SCLK;
+		adc_data=(adc_data<<1)|(PORT_ADC_DOUT->IDR & GPIO_ADC_DOUT);
+	}
+	return adc_data;
+}
 
+void StartADC(void)
+{
+	GPIO_InitTypeDef GPIO_InitStructure;
+	EXTI_InitTypeDef EXTI_InitStructure;
+	NVIC_InitTypeDef NVIC_InitStructure;
+	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
+	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA|RCC_AHBPeriph_GPIOB, ENABLE);	//GPIOA时钟 GPIOB时钟
 
+    //ADC_CON
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_40MHz;
+	GPIO_InitStructure.GPIO_Pin = GPIO_ADC_CON;
+	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+	GPIO_Init(PORT_ADC_CON, &GPIO_InitStructure);
+	GPIO_ResetBits(PORT_ADC_CON,GPIO_ADC_CON);
+	//ADC_SCLK
+	
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_40MHz;
+	GPIO_InitStructure.GPIO_Pin = GPIO_ADC_SCLK;
+	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+	GPIO_Init(PORT_ADC_SCLK, &GPIO_InitStructure);
+	GPIO_ResetBits(PORT_ADC_SCLK,GPIO_ADC_SCLK);
+	
+	//DIN = DVDD
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_40MHz;
+	GPIO_InitStructure.GPIO_Pin = GPIO_ADC_IN;
+	GPIO_Init(PORT_ADC_IN, &GPIO_InitStructure);
+	GPIO_SetBits(PORT_ADC_IN,GPIO_ADC_IN);
+	
+	//ADC_DOUT
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+	GPIO_InitStructure.GPIO_Pin = GPIO_ADC_DOUT;
+	GPIO_Init(PORT_ADC_DOUT, &GPIO_InitStructure);	
+   
+    //RCC_APB2PeriphClockCmd(RCC_TOUCHOUT|RCC_APB2Periph_AFIO, ENABLE);//打开GPIO AFIO的时钟  
+	//RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO,ENABLE);　
+	//GPIO_EXTILineConfig(GPIO_PortSourceGPIOB,GPIO_PinSource2);
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
+	SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOB, EXTI_PinSource14);
+    /* Configure EXTI1 line */
+	EXTI_InitStructure.EXTI_Line = EXTI_Line14;
+	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;  
+	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+	EXTI_Init(&EXTI_InitStructure);
+	
+    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);
+	
+	/* Enable and set EXTI0 Interrupt to the lowest priority */
+	NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x0;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x03;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+	
+	
+	//timer init
+	
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+    TIM_TimeBaseStructure.TIM_Period = 63;
+    TIM_TimeBaseStructure.TIM_Prescaler = 100;
+    TIM_TimeBaseStructure.TIM_ClockDivision = 0;
+    TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
 
+    TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
+    /* TIM IT enable */
+    TIM_ITConfig(TIM2,TIM_IT_Update, ENABLE);
 
+    /* TIM2 enable counter */
+    TIM_Cmd(TIM2, ENABLE);
+	
 
+	/* Enable the TIM2 Interrupt */
+	NVIC_InitStructure.NVIC_IRQChannel = TIM2_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+		
+	PowerControl_Init();
+	
+	delay_ms(1000);
+	//Sample(2,1024);
+	
+	//PowerControl_DisInit();
+}	
 
+static int16_t buffer_cnt=0;
+void EXTI15_10_IRQHandler(void)
+{ 
+	uint32_t adc_da=0;
+    int16_t j=0;
+    uint32_t adc_data=0;
+	if (EXTI_GetITStatus(EXTI_Line14) != RESET)
+	{
+		/* Clear the EXTI Line 0 */
+		adc_da=Sampleone();
+		EXTI_ClearITPendingBit(EXTI_Line14);
+		adc_buffer[buffer_cnt++]=(adc_da>>14);//&0xFFFC0000;
+		if(buffer_cnt==1014)
+			buffer_cnt=0;
+		
+
+	}
+}
+
+void TIM2_IRQHandler(void)
+{
+
+  if (TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET)
+  {
+     TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
+	 // GPIO_ToggleBits(PORT_ADC_SCLK,GPIO_ADC_SCLK);
+	 GPIO_SetBits(PORT_ADC_CON,GPIO_ADC_CON);
+	 delay_us(3);
+	 GPIO_ResetBits(PORT_ADC_CON,GPIO_ADC_CON);
+  }
+}
 
 

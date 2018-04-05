@@ -8,6 +8,7 @@ void Led_Open(void);
 void Led_Close(void);
 void Led_toggle(void);
 void PowerControl_Init(void);
+void PowerControl_DisInit(void);
 void LOW_Power_Init(void);
 #endif
 

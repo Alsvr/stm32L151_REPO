@@ -9,6 +9,7 @@
 //433M_RX  --->PA3
 #define M0_GPIO GPIO_Pin_8
 #define M1_GPIO GPIO_Pin_9
+#define POWER_GPIO GPIO_Pin_10
 uint8_t wireless_rx_buff[64]; 
 static int wireless_rx_cnt=0;
 void wire_less_uart_init(uint32_t buand)
@@ -70,7 +71,19 @@ void Wireless_Config_mode(void)
   GPIO_SetBits(GPIOB,M1_GPIO);
   delay_ms(20);
 }
-	uint8_t uart_data=0;
+
+void Wireless_power_down(void)
+{
+  GPIO_SetBits(GPIOB,POWER_GPIO);
+}
+
+void Wireless_power_on(void)
+{
+ 
+  GPIO_ResetBits(GPIOB,POWER_GPIO);
+}
+
+uint8_t uart_data=0;
 void init_wireless(	uint8_t HEAD,
 					uint16_t ADD,
 					uint32_t baund,
@@ -103,7 +116,7 @@ void init_wireless(	uint8_t HEAD,
 	
 	/* Power config*/
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
 	GPIO_Init(GPIOB, &GPIO_InitStructure);
 	GPIO_ResetBits(GPIOB,GPIO_Pin_10);

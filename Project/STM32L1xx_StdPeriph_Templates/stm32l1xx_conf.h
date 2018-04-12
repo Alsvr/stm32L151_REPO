@@ -39,7 +39,7 @@
 #include "stm32l1xx_dbgmcu.h"
 //#include "stm32l1xx_dma.h"
 #include "stm32l1xx_exti.h"
-//#include "stm32l1xx_flash.h"
+#include "stm32l1xx_flash.h"
 //#include "stm32l1xx_fsmc.h"
 #include "stm32l1xx_gpio.h"
 #include "stm32l1xx_i2c.h"

@@ -15,10 +15,18 @@ typedef struct
 	uint8_t OPTION;
 }WireLess_DATA;
 
+
+
+
 void init_wireless(	uint8_t HEAD,
 					uint16_t ADD,
 					uint32_t baund,
 					uint8_t channel);
+void Init_CC3200(uint8_t HEAD,
+                        uint16_t ADD,
+                        uint32_t baund,
+                        uint8_t channel);
+
 void Wireless_wakeup_mode(void);
 void Wireless_power_down(void);
 void Wireless_power_on(void);

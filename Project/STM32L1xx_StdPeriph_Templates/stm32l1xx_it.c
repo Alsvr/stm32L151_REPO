@@ -42,22 +42,21 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
-#define USARTx_IRQHANDLER   USART1_IRQHandler
 
-#define TXBUFFERSIZE   (countof(TxBuffer) - 1)
-#define RXBUFFERSIZE   0x80
+//#define TXBUFFERSIZE   (countof(TxBuffer) - 1)
+//#define RXBUFFERSIZE   0x80
 
-/* Private macro -------------------------------------------------------------*/
-#define countof(a)   (sizeof(a) / sizeof(*(a)))
+///* Private macro -------------------------------------------------------------*/
+//#define countof(a)   (sizeof(a) / sizeof(*(a)))
 
-/* Private variables ---------------------------------------------------------*/
-uint8_t TxBuffer[] = "\n\rUSART Hyperterminal Interrupts Example: USART-Hyperterminal\
- communication using Interrupt\n\r";
-uint8_t RxBuffer[RXBUFFERSIZE];
-uint8_t NbrOfDataToTransfer = TXBUFFERSIZE;
-uint8_t NbrOfDataToRead = RXBUFFERSIZE;
-__IO uint8_t TxCounter = 0; 
-__IO uint16_t RxCounter = 0; 
+///* Private variables ---------------------------------------------------------*/
+//uint8_t TxBuffer[] = "\n\rUSART Hyperterminal Interrupts Example: USART-Hyperterminal\
+// communication using Interrupt\n\r";
+//uint8_t RxBuffer[RXBUFFERSIZE];
+//uint8_t NbrOfDataToTransfer = TXBUFFERSIZE;
+//uint8_t NbrOfDataToRead = RXBUFFERSIZE;
+//__IO uint8_t TxCounter = 0; 
+//__IO uint16_t RxCounter = 0; 
 /* Private function prototypes -----------------------------------------------*/
 /* Private functions ---------------------------------------------------------*/
 
@@ -162,101 +161,6 @@ void SysTick_Handler(void)
 {
 }
 
-/******************************************************************************/
-/*            STM32L1xx Peripherals Interrupt Handlers                        */
-/******************************************************************************/
 
-/**
-  * @brief  This function handles USARTx global interrupt request.
-  * @param  None
-  * @retval None
-  */
-char i=0;
-
-void USARTx_IRQHANDLER(void)
-{
-   int j=0,k=0;
-   if(USART_GetITStatus(USART1,USART_IT_RXNE)!=RESET) //判断是否产生接收中断
-   {
-		RxBuffer[i]=USART_ReceiveData(USART1);
-		if(RxBuffer[i++]==0x0a)
-		{
-			Wireless_wakeup_mode();
-			for(k=0;k<128;k++)
-			{
-				
-			USART_SendData(USART1,0x00); //当产生接收中断的时候,接收该数据，然后再从串口1把数据发送出去
-		    while(USART_GetFlagStatus(USART1,USART_FLAG_TXE)==RESET);//等待发送数据完毕);	
-			USART_SendData(USART1,0x01); //当产生接收中断的时候,接收该数据，然后再从串口1把数据发送出去
-		     while(USART_GetFlagStatus(USART1,USART_FLAG_TXE)==RESET);//等待发送数据完毕);			
-		     
-			USART_SendData(USART1,0x50); //当产生接收中断的时候,接收该数据，然后再从串口1把数据发送出去
-			while(USART_GetFlagStatus(USART1,USART_FLAG_TXE)==RESET);//等待发送数据完毕);	
-			for(j=0;j<40;j++)
-			{
-				
-				
-
-
-			  USART_SendData(USART1,RxBuffer[j]+j); //当产生接收中断的时候,接收该数据，然后再从串口1把数据发送出去
-		      while(USART_GetFlagStatus(USART1,USART_FLAG_TXE)==RESET);//等待发送数据完毕);	
-			}
-			while(!GPIO_ReadInputDataBit(GPIOA,GPIO_Pin_1));
-			
-		}
-			i=0;
-			
-		}
-		
-		if(i==RXBUFFERSIZE)
-		   i=0;
-
-   }
-
-
-}
-
-/******************************************************************************/
-/*                 stm32l1xx Peripherals Interrupt Handlers                   */
-/*  Add here the Interrupt Handler for the used peripheral(s) (PPP), for the  */
-/*  available peripheral interrupt handler's name please refer to the startup */
-/*  file (startup_stm32l1xx_xx.s).                                            */
-/******************************************************************************/
-
-/**
-  * @brief  This function handles PPP interrupt request.
-  * @param  None
-  * @retval None
-  */
-void EXTI1_IRQHandler(void)
-{
-  if (EXTI_GetITStatus(GPIO_Pin_1) != RESET)
-  {
-    /* Clear the EXTI Line 0 */
-    EXTI_ClearITPendingBit(GPIO_Pin_1);
-	
-  }
-}
-
-
-
-void RTC_WKUP_IRQHandler(void)
-{
-  if(RTC_GetITStatus(RTC_IT_WUT) != RESET)
-  {
-    /* Toggle LED1 */
-    //STM_EVAL_LEDToggle(LED1);
-    RTC_ClearITPendingBit(RTC_IT_WUT);
-    EXTI_ClearITPendingBit(EXTI_Line20);
-  } 
-}
-
-/**
-  * @}
-  */ 
-
-/**
-  * @}
-  */ 
   
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

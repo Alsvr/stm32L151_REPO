@@ -2,8 +2,8 @@
 #define __ADC_H	
 
 #include "stm32l1xx_adc.h"
-	   									   
-void StartADC(void);  
+   
+void ADCStartSample(void);  
 #endif 
 
 

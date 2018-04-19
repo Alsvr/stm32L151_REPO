@@ -37,6 +37,8 @@
 #include "FM25WXX.h" 
 #include "dataStore.h"
 #include "uart.h"
+#include "ds18b20.h"
+
 /** @addtogroup STM32L1xx_StdPeriph_Examples
   * @{
   */
@@ -69,6 +71,8 @@ void NVIC_Config(void);
 
 
 uint8_t Rx[1024];
+short temp;
+
 int main(void)
 {
   /*!< At this stage the microcontroller clock setting is already configured, 
@@ -76,7 +80,7 @@ int main(void)
        file (startup_stm32l1xx_xx.s) before to branch to application main.
        To reconfigure the default setting of SystemInit() function, refer to
        system_stm32l1xx.c file
-     */  	
+     */  
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
     Led_Init();
     Uart_Log_Configuration();
@@ -85,17 +89,25 @@ int main(void)
     GetGlobalData();
     
     //printf("USART1 TEST\r\n");
-    Init_CC3200(0xC0,0x1210,115200,80);
+    //Init_CC3200(0xC0,0x1210,115200,80);
     //test_FM25V05();
-    
-    PowerControl_DeInit();
-    //StartADC();
+    bsp_InitDS18B20();
+    //PowerControl_DeInit();
+    //ADCStartSample();
+    //while(DS18B20_Init())
+    //{
+     //   delay_ms(4);
+    //}
+    temp = DS18B20_ReadTempReg();
+    printf("temp is %d\n",temp);
+    bsp_DeInitDS18B20();
     while(1)
     {
         //PowerControl_Init();
-        delay_ms(1000);
-        //PowerControl_DeInit();
-        delay_ms(1000);
+        delay_ms(4000);
+        Handler_PC_Command();
+        PowerControl_DeInit();
+        delay_ms(10);
     }
 
 

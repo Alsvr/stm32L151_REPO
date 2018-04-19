@@ -1,5 +1,12 @@
 #include "uart.h"
 #include "stdio.h"
+#include <string.h>
+static uint8_t uart1_buffer[512];
+static uint16_t uart1_cnt=0;
+static PC_CMD_Structure g_pc_cmd;
+
+
+
 
 int fputc(int ch,FILE *f)
 {
@@ -7,6 +14,7 @@ int fputc(int ch,FILE *f)
     while(USART_GetFlagStatus(USART1,USART_FLAG_TXE)==RESET);//等待发送数据完毕);
     return ch;
 }
+
 
 void Uart_Log_Configuration(void)
 {
@@ -55,12 +63,61 @@ void Uart_Log_Configuration(void)
 		
 }
 
+//const char AT_CONFIG_START[] = {"+++"};  
+//const char AT_ENTM[] = {"AT+ENTM\r"};  
+//const char AT_E[] = {"AT+E\r"};
+//const char AT_a[] = {"a"};
+//const char PC_AT_OK[] = {"+OK"};
+const char PC_AT_WANN[] = {"AT+WANN\r"};
+//const char AT_WSLK[] = {"AT+WSLK\r"};
+//const char AT_WSCAN[] = {"AT+WSCAN\r"};
+//const char AT_UART[] = {"AT+UART\r"};
+//const char AT_SOCKA[] = {"AT+SOCKA\r"};
+//const char AT_MSLP[] = {"AT+MSLP\r"};
+void Handler_PC_Command(void)
+{
+    uint8_t i=0,*str_start=0;
+    for(i=0;i<sizeof(g_pc_cmd.at_cmd_flag);i++)
+    {
+        if(g_pc_cmd.at_cmd_flag[i] == 1)
+        {
+            if(str_start = strstr((const char *)(g_pc_cmd.at_cmd[i]),PC_AT_WANN))
+            {
+                printf("%d\n",str_start-g_pc_cmd.at_cmd[i]);
+                g_pc_cmd.at_cmd_flag[i] =0;
+
+            }
+            break;
+        }          
+    }   
+
+
+}
+
+
 void USART1_IRQHandler(void)
 {
-    uint8_t uart_data=0;
+    uint8_t uart_data=0, i=0;
     if(USART_GetITStatus(USART1,USART_IT_RXNE)!=RESET) //判断是否产生接收中断
     {
         uart_data=USART_ReceiveData(USART1);
+        uart1_buffer[uart1_cnt++] = uart_data ;
+        if(uart_data == '\n')
+        {
+            for(i=0;i<sizeof(g_pc_cmd.at_cmd_flag);i++)
+            {
+                if(g_pc_cmd.at_cmd_flag[i] == 0)
+                {
+                    memcpy(g_pc_cmd.at_cmd[i],uart1_buffer,uart1_cnt);
+                    uart1_cnt = 0;
+                    g_pc_cmd.at_cmd_flag[i] =1;
+                    printf("i=%d,%s",i,(char *)g_pc_cmd.at_cmd[i]);
+                    break;
+                }          
+            }
+            if(i == sizeof(g_pc_cmd.at_cmd_flag))
+                uart1_cnt = 0;
+        }
     }
 
 }

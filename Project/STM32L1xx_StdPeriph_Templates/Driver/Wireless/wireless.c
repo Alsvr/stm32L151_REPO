@@ -101,30 +101,35 @@ const char AT_UART[] = {"AT+UART\r"};
 const char AT_SOCKA[] = {"AT+SOCKA\r"};
 const char AT_MSLP[] = {"AT+MSLP\r"};
 
+
+const char AT_BACK_DISCONNECTION[] = {"+OK=DISCONNECTED"};
+
 static uint16_t At_cmd_state = 0;
 #define AT_CMD_WAIT_A    1 
 #define AT_CMD_WAIT_OK   2 
 #define AT_CMD_WAIT_OK_PASS   3 
-#define AT_CMD_WAIT_AT_E_BACK 4
+#define AT_CMD_WAIT_OK_PASS_FINISH   4 
+#define AT_CMD_WAIT_AT_E_BACK 5
 
+#define AT_CMD_WAIT_AT_BACK  6
+#define AT_CMD_WAIT_AT_BACK_PASS  7
 #define AT_CMD_WAIT_AT_TEMP   0xff
-void Send_At_Cmd(const char * p,uint16_t cmd_state )
+void Send_At_Cmd(const char * p,uint8_t num)
 {
     uint8_t i = 0;
-    uint8_t num = strlen(p);
+    //uint8_t num = strlen(p);
     //USART_SendData(USART1,'-');
     //while(USART_GetFlagStatus(USART1,USART_FLAG_TXE)==RESET);//等待发送数据完毕);
-    
+    uart2_cnt = 0;
+    memset(uart2_buffer,0,sizeof(uart2_buffer));
     for(i=0;i<num;i++)
     {
         USART_SendData(USART2,(uint8_t)*(p++)); //当产生接收中断的时候,接收该数据，然后再从串口1把数据发送出去
         while(USART_GetFlagStatus(USART2,USART_FLAG_TXE)==RESET);//等待发送数据完毕);
 
-        //USART_SendData(USART1,(uint8_t)*(p++));
+        // USART_SendData(USART1,(uint8_t)*(p++));
         //while(USART_GetFlagStatus(USART1,USART_FLAG_TXE)==RESET);//等待发送数据完毕);		
     }
-    At_cmd_state = cmd_state;
-    uart2_cnt = 0;
 }
 
 void WireLess_Send_data(const char * p,uint32_t len )
@@ -144,15 +149,226 @@ void WireLess_Send_data(const char * p,uint32_t len )
 
 uint8_t WireLess_check_wifi_ok()
 {
-    Send_At_Cmd(AT_WSLK,AT_CMD_WAIT_AT_TEMP);
-    if(   
+    Send_At_Cmd(AT_WSLK,1);
+    //if(   
 }
+
+
+uint8_t WiFi_Enter_CMD_mode(void)
+{
+    uint8_t time_out_cnt = 0;
+
+    __disable_irq();
+    Send_At_Cmd(AT_CONFIG_START,strlen(AT_CONFIG_START));    
+    At_cmd_state = AT_CMD_WAIT_A;
+    __enable_irq(); 
+    do
+    {
+        delay_ms(100);
+        if(At_cmd_state == AT_CMD_WAIT_OK)
+        {
+            break;
+        }
+        else
+        {
+            time_out_cnt++;
+
+        }
+    }while(time_out_cnt < 10);
+    if(time_out_cnt >= 10)
+    {
+
+        printf("wait a fail\n");
+        return 0;
+    }
+    
+    __disable_irq();
+    printf("start send a\n");
+    Send_At_Cmd(AT_a,strlen(AT_a));    
+    At_cmd_state = AT_CMD_WAIT_OK;
+    memset(uart2_buffer, 0, sizeof(uart2_buffer));
+    __enable_irq(); 
+    time_out_cnt = 0;
+    do
+    {
+        delay_ms(1);
+        if(At_cmd_state == AT_CMD_WAIT_OK_PASS)
+        {
+            At_cmd_state = AT_CMD_WAIT_OK_PASS_FINISH;
+            printf("AT_CMD_WAIT_OK_PASS_FINISH\n");
+            break;
+        }
+        else
+        {
+            time_out_cnt++;
+        }
+    }while(time_out_cnt < 10);
+    if(time_out_cnt >= 10)
+    {
+        printf("wait + OK fail\n");
+        return 0;
+    }
+    return 1;
+
+}
+
+#define WIFI_WAIT_AT_BACK_DELAY 1000 //10ms
+#define WIFI_WAIT_LINK_OK_DELAY 100 //times
+uint8_t WiFi_GetWifiStatus(void)
+{
+    uint16_t time_out_cnt = 0;
+
+    __disable_irq();
+    Send_At_Cmd(AT_WSLK,strlen(AT_WSLK));    
+    At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    __enable_irq(); 
+
+    time_out_cnt = 0;
+    do
+    {
+        delay_ms(1);
+        if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
+        {
+            break;
+        }
+        else
+        {
+            time_out_cnt++;
+        }
+    }while(time_out_cnt < WIFI_WAIT_AT_BACK_DELAY);
+    if(time_out_cnt >= WIFI_WAIT_AT_BACK_DELAY)
+    {
+        printf("WiFi_GetWifiStatus fail %d\n",time_out_cnt);
+        return 0;
+    }
+    printf("AT_WSLK get %s wait %d ms\n",&uart2_buffer[2],time_out_cnt);
+
+    if(strstr((const char *)(&uart2_buffer[2]),AT_BACK_DISCONNECTION))
+    {   
+        return 0;
+    }
+    else
+    {
+       // printf("WiFi_GetWifiStatus pass\n");
+       
+       return 1;
+    }
+}
+
+
+uint8_t WiFi_WaitLinkOk(void)
+{
+    
+    uint16_t time_out_cnt = 0;
+    do
+    {
+        if(WiFi_GetWifiStatus())
+        {
+            break;
+        }
+        else
+        {
+            time_out_cnt++;
+        }
+    }while(time_out_cnt < WIFI_WAIT_LINK_OK_DELAY);
+    if(time_out_cnt >= WIFI_WAIT_LINK_OK_DELAY)
+    {
+        printf("WiFiWaitLinkOk fail\n");
+        return 0;
+    }
+    return 1;
+
+}
+uint8_t WiFi_Exit_CMD_mode(void)
+{
+    uint16_t time_out_cnt = 0;
+    __disable_irq();
+    Send_At_Cmd(AT_ENTM,strlen(AT_ENTM));    
+    At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    __enable_irq(); 
+
+    time_out_cnt = 0;
+    do
+    {
+        delay_ms(1);
+        if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
+        {
+            break;
+        }
+        else
+        {
+            time_out_cnt++;
+        }
+    }while(time_out_cnt < WIFI_WAIT_AT_BACK_DELAY);
+    if(time_out_cnt >= WIFI_WAIT_AT_BACK_DELAY)
+    {
+        printf("WiFi_Exit_CMD_mode wait back fail ,wait %d ms\n",time_out_cnt);
+        return 0;
+    }
+    printf("AT_ENTM get %s wait %d ms\n",&uart2_buffer[2],time_out_cnt);
+
+    if(strstr((const char *)(&uart2_buffer[2]),AT_OK))
+    {
+        printf("exit cmd mode\n");
+        return 1;  
+    }
+    else
+    {
+        printf("exit cmd mode error\n");
+        return 0;
+    }
+
+}
+
+
+uint8_t WiFi_EnterLowPowerMode(void)
+{
+    
+   uint16_t time_out_cnt = 0;
+    __disable_irq();
+    Send_At_Cmd(AT_MSLP,strlen(AT_MSLP));    
+    At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    __enable_irq(); 
+
+    time_out_cnt = 0;
+    do
+    {
+        delay_ms(1);
+        if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
+        {
+            break;
+        }
+        else
+        {
+            time_out_cnt++;
+        }
+    }while(time_out_cnt < WIFI_WAIT_AT_BACK_DELAY);
+    if(time_out_cnt >= WIFI_WAIT_AT_BACK_DELAY)
+    {
+        printf("WiFi_EnterLowPowerMode wait error %d\n",time_out_cnt);
+        return 0;
+    }
+    printf("AT_MSLP get %s wait %d ms\n",&uart2_buffer[2],time_out_cnt);
+
+    if(strstr((const char *)(&uart2_buffer[2]),AT_OK))
+    {
+        printf("WiFi_EnterLowPowerMode success\n");
+        return 1;  
+    }
+    else
+    {
+        printf("WiFi_EnterLowPowerMode success fail\n");
+        return 0;
+    }
+
+}
+
 void Init_CC3200(uint8_t HEAD,
                 uint16_t ADD,
                 uint32_t baund,
                 uint8_t channel)
 {
-    uint8_t i=0;
+    uint8_t i=0 ,re =0;
     uint8_t * at_p=0;
     GPIO_InitTypeDef GPIO_InitStructure;
 
@@ -166,42 +382,48 @@ void Init_CC3200(uint8_t HEAD,
     GPIO_ResetBits(GPIOB,GPIO_Pin_10);
 
     wire_less_uart_init(115200);
-    delay_ms(800);
-    Send_At_Cmd(AT_CONFIG_START,AT_CMD_WAIT_A);
-    while(At_cmd_state != AT_CMD_WAIT_OK_PASS)
-    {
-       delay_us(10);
-    }
     delay_ms(10);
-    Send_At_Cmd(AT_E,AT_CMD_WAIT_AT_TEMP);
+    //enter cmd 
+    i=0;
+    do
+    {
+        re=WiFi_Enter_CMD_mode();
+        i++;
+    
+    }while((i<4)&&(re==0));
+    if(i>=4)
+        printf("Enter wifi cmd mode fail!\n");
+    else
+        printf("Enter wifi cmd mode pass!\n");
+    
+    WiFi_WaitLinkOk();
+    WiFi_WaitLinkOk();
+
+    WiFi_EnterLowPowerMode();
+    if(WiFi_Exit_CMD_mode())
+        printf("WiFi_Exit_CMD_mode success!\n");
+    while(1){}
+        
+    /*enter cmd*/ 
+    i=0;
+    do
+    {
+        re=WiFi_Enter_CMD_mode();
+        i++;
+    
+    }while((i<4)&&(re==0));
+    if(i>=4)
+        printf("Enter wifi cmd mode fail!\n");
+    else
+        printf("Enter wifi cmd mode pass!\n");
 
     
-    delay_ms(2000);
-    Send_At_Cmd(AT_WSLK,AT_CMD_WAIT_AT_TEMP);
-    delay_ms(1000);
-    Send_At_Cmd(AT_WANN,AT_CMD_WAIT_AT_TEMP);
-    delay_ms(1000);
-    Send_At_Cmd(AT_ENTM,AT_CMD_WAIT_AT_TEMP);
-    delay_ms(10);
-    WireLess_Send_data("AAAAAAAAS3333333333333333333333333333DSFDS",5000);
-    delay_ms(1);
-    WireLess_Send_data("AAAAAAAAS3333333333333333333333333333DSFDS",5000);
-    delay_ms(1);
-    WireLess_Send_data("AAAAAAAAS3333333333333333333333333333DSFDS",5000);
-    delay_ms(100);
-    
-    Send_At_Cmd(AT_CONFIG_START,AT_CMD_WAIT_A);
-    while(At_cmd_state != AT_CMD_WAIT_OK_PASS)
-    {
-       delay_us(10);
-    }
-    delay_ms(100);
-    Send_At_Cmd(AT_MSLP,AT_CMD_WAIT_AT_TEMP);
+    Send_At_Cmd(AT_MSLP,strlen(AT_MSLP));
 
-    delay_ms(1000);
-    WireLess_Send_data("00000",5);
-    delay_ms(10);delay_ms(4000);delay_ms(4000);
-    WireLess_Send_data("AAAAAAAAS3333333333333333333333333333DSFDS",5000);
+    //delay_ms(1000);
+    //WireLess_Send_data("00000",5);
+    //delay_ms(10);delay_ms(4000);delay_ms(4000);
+    //WireLess_Send_data("AAAAAAAAS3333333333333333333333333333DSFDS",5000);
 }
 
 void init_wireless(uint8_t HEAD,
@@ -294,44 +516,44 @@ void USART2_IRQHandler(void)
 {
    uint8_t da=0;
    if(USART_GetITStatus(USART2,USART_IT_RXNE)!=RESET) //判断是否产生接收中断
-	{
-        
+   {
         da = USART_ReceiveData(USART2);
-        USART_SendData(USART1,(uint8_t)da);
-        while(USART_GetFlagStatus(USART1,USART_FLAG_TXE)==RESET);//等待发送数据完毕);
+        uart2_buffer[uart2_cnt++] = da ;
+        
+        if(uart2_cnt >= sizeof(uart2_buffer))
+            uart2_cnt = 0;
+        
+        //USART_SendData(USART1,(uint8_t)da);  //输出到串口 log
+        //while(USART_GetFlagStatus(USART1,USART_FLAG_TXE)==RESET); //等待发送数据完毕);
 
-        if(At_cmd_state == AT_CMD_WAIT_A)
+        if(At_cmd_state == AT_CMD_WAIT_A)  //wait cmd back ‘a'
         {
-            if(da=='a')
+            if(da =='a')
             {
-                USART_SendData(USART2,'a'); //当产生接收中断的时候,接收该数据，然后再从串口1把数据发送出去
-                while(USART_GetFlagStatus(USART2,USART_FLAG_TXE)==RESET);//等待发送数据完毕);	
                 At_cmd_state = AT_CMD_WAIT_OK;
-                uart2_cnt=0;
-                memset(uart2_buffer, 0, sizeof(uart2_buffer));
+                printf("AT_CMD_WAIT_OK\n");
             }   
         }
-        else if(At_cmd_state == AT_CMD_WAIT_OK)
+        else if(At_cmd_state == AT_CMD_WAIT_OK) //wait cmd back '+OK'
         {
-            uart2_buffer[uart2_cnt++] = da;
             if(strcmp(AT_OK,(const char *)uart2_buffer) == 0)
             {
                 At_cmd_state = AT_CMD_WAIT_OK_PASS;
+                printf("AT_CMD_WAIT_OK_PASS\n");
             }
         }
-        else if(At_cmd_state == AT_CMD_WAIT_AT_E_BACK)
+        
+        else if(At_cmd_state == AT_CMD_WAIT_AT_BACK) //wait normal AT back 
         {
-            uart2_buffer[uart2_cnt++] = da;
-            if(strcmp(AT_OK,(const char *)uart2_buffer) == 0)
+            
+            if((da == 0xa)&&(uart2_cnt>3))
             {
-                At_cmd_state = AT_CMD_WAIT_OK_PASS;
+                At_cmd_state = AT_CMD_WAIT_AT_BACK_PASS;
             }
         }
         else if(AT_CMD_WAIT_AT_TEMP ==At_cmd_state)
         {
-            uart2_buffer[uart2_cnt++] = da;
-            
-            
+           
         }
        
 //wireless_rx_buff[wireless_rx_cnt++]=USART_ReceiveData(USART2);

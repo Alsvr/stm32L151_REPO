@@ -5,11 +5,11 @@
 #include "stdio.h" 
 
 #define  ADC_OFFSET_DEFAULT 0
-#define  ADC_LEN_DEFAULT    4  //K
+#define  ADC_LEN_DEFAULT    128  //128
 #define  ADC_SPEED_DEFAULT  1  //K
-#define  BOOT_ALREADY       0x45
+#define  BOOT_ALREADY       0x49
 
-typedef struct GlobalData_Para{
+typedef struct {
     uint8_t terminal_addr[4];     //终端地址 IP
     uint8_t route_addr[4];        //终端对应的协调器地址 IP
     int16_t   ADC_OFFSET;         //终端adc偏移
@@ -20,6 +20,7 @@ typedef struct GlobalData_Para{
     uint32_t  dummy;
 }GlobalData_Para;
 
-uint8_t GetGlobalData(void);
+GlobalData_Para* GetGlobalData(void);
+uint16_t Get_ADC_LEN(void);
 
 #endif

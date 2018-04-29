@@ -14,6 +14,9 @@ void bsp_InitDS18B20(void);//≥ı ºªØDS18B20
 void bsp_DeInitDS18B20(void);
 
 int16_t DS18B20_ReadTempReg(void);
+int16_t DS18B20_ReadTempStep1(void);
+int16_t DS18B20_ReadTempStep2(void);
+
 
 
 #endif

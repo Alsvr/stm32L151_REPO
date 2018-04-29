@@ -91,7 +91,7 @@ void Read_DATA_EEPROM(uint8_t* pBuffer,uint32_t len)
         pBuffer = pBuffer + 4;
     }
 }
-uint8_t GetGlobalData(void)
+GlobalData_Para* GetGlobalData(void)
 {
      uint16_t i=0,error_cnt=0;
      uint8_t  crc_sum=0; 
@@ -114,7 +114,7 @@ uint8_t GetGlobalData(void)
          SetGlobalData();
      }
      OutPutGloablPara(&CC2530_Global_Para);
-     return 1; 
+     return &CC2530_Global_Para; 
 }
 
 void SetADCLen(uint8_t Len)   //传入的是256个16位数据

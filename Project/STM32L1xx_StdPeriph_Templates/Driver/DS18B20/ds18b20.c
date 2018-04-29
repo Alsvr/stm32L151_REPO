@@ -58,7 +58,7 @@ void bsp_DeInitDS18B20(void)
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);	//GPIOA时钟
     GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_11;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_40MHz;
-    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IN;
+    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AN;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
     
@@ -260,6 +260,52 @@ int16_t DS18B20_ReadTempReg(void)
     DS18B20_Reset();
 	return ((temp2 << 8) | temp1);	/* 返回16位寄存器值 */
 }
+
+
+
+int16_t DS18B20_ReadTempStep1(void)
+{
+    uint8_t temp1, temp2;
+    uint8_t TL , TH , config;
+    /* 总线复位 */
+    if (DS18B20_Reset() == 0)
+    {
+        return 0;
+    }
+    DS18B20_WriteByte(0xcc);	/* 发命令 */
+    DS18B20_WriteByte(0x44);	/* 发转换命令 */
+    return 1;
+}
+
+
+
+
+int16_t DS18B20_ReadTempStep2(void)
+{
+	uint8_t temp1, temp2;
+    uint8_t TL , TH , config;
+	/* 总线复位 */
+    
+    if (DS18B20_Reset() == 0)
+	{
+		return 0;
+	}	
+    DS18B20_WriteByte(0xcc);	/* 发命令 */
+	DS18B20_WriteByte(0xbe);
+	temp1 = DS18B20_ReadByte();	/* 读温度值低字节 */
+	temp2 = DS18B20_ReadByte();	/* 读温度值高字节 */
+    
+	TL = DS18B20_ReadByte();	/* 读温度值低字节 */
+	TH = DS18B20_ReadByte();	/* 读温度值高字节 */
+    
+
+	config = DS18B20_ReadByte();	/* 读温度值高字节 */
+    
+    printf("TL is %X,TH is %X config is %X!\n",TL,TH,config);
+    DS18B20_Reset();
+	return ((temp2 << 8) | temp1);	/* 返回16位寄存器值 */
+}
+
 
 /*
 *********************************************************************************************************

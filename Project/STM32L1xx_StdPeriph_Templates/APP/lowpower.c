@@ -88,7 +88,7 @@ void RTC_Config(void)
  
   /* RTC Wakeup Interrupt Generation: Clock Source: RTCDiv_16, Wakeup Time Base: 4s */
   RTC_WakeUpClockConfig(RTC_WakeUpClock_RTCCLK_Div16);
-  RTC_SetWakeUpCounter(0x1ffF);
+  RTC_SetWakeUpCounter(0xF000);
 
   /* Enable the Wakeup Interrupt */
   RTC_ITConfig(RTC_IT_WUT, ENABLE);  
@@ -99,34 +99,25 @@ void To_Exit_Stop(void)
 
   RTC_WakeUpCmd(DISABLE);
     /* Enable HSI Clock */
-  RCC_HSICmd(ENABLE);
+  RCC_HSEConfig(RCC_HSE_ON);
 
-  /*!< Wait till HSI is ready */
-  while (RCC_GetFlagStatus(RCC_FLAG_HSIRDY) == RESET);
-
-  /* Enable 64-bit access */
-  //FLASH_ReadAccess64Cmd(ENABLE);
-
-  /* Enable Prefetch Buffer */
-  //FLASH_PrefetchBufferCmd(ENABLE);
-
-  /* Flash 1 wait state */
-  //FLASH_SetLatency(FLASH_Latency_1);
-
-  RCC_SYSCLKConfig(RCC_SYSCLKSource_HSI);
-
-  while (RCC_GetSYSCLKSource() != 0x04);
-
-  RCC_HCLKConfig(RCC_SYSCLK_Div1);  
-  /* PCLK2 = HCLK */
-  RCC_PCLK2Config(RCC_HCLK_Div1);
-
-  /* PCLK1 = HCLK */
-  RCC_PCLK1Config(RCC_HCLK_Div1);  
-
-  PWR_VoltageScalingConfig(PWR_VoltageScaling_Range1);
-  /* Wait Until the Voltage Regulator is ready */
-  while (PWR_GetFlagStatus(PWR_FLAG_VOS) != RESET);
+    /* Wait till HSE is ready */
+    while (RCC_GetFlagStatus(RCC_FLAG_HSERDY) == RESET)
+    {}
+    
+    /* Enable PLL */
+    RCC_PLLCmd(ENABLE);
+    
+    /* Wait till PLL is ready */
+    while (RCC_GetFlagStatus(RCC_FLAG_PLLRDY) == RESET)
+    {}
+    
+    /* Select PLL as system clock source */
+    RCC_SYSCLKConfig(RCC_SYSCLKSource_PLLCLK);
+    
+    /* Wait till PLL is used as system clock source */
+    while (RCC_GetSYSCLKSource() != 0x0C)
+    {}
 
 //    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA | RCC_AHBPeriph_GPIOB | RCC_AHBPeriph_GPIOC |
 //                        RCC_AHBPeriph_GPIOD | RCC_AHBPeriph_GPIOE | RCC_AHBPeriph_GPIOH |

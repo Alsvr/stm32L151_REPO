@@ -6,13 +6,27 @@
 #include "delay.h"
 
 
-#define SERVER_TO_NODE_CMD_START_ADC     0x01
-#define SERVER_TO_NODE_CMD_SLEEP_TIME    0x02
+#define NODE_INSTRU_HEAD1       0xFC
+#define NODE_INSTRU_HEAD2       0xFE
+
+#define NODE_INSTRU_TAIL1       0xFA
+#define NODE_INSTRU_TAIL2       0xFB
+
+#define SERVER_TO_NODE_CMD     0x01
+#define SERVER_TO_NODE_CMD_START_ADC      0x01
+#define SERVER_TO_NODE_CMD_SET_ADC        0x01
+#define SERVER_TO_NODE_CMD_CON_SAMP       0x01
+#define SERVER_TO_NODE_CMD_SAMP_POWER     0x01
 
 
 
-#define NODE_TO_SERVER_INST_HEART       0x01
-#define NODE_TO_SERVER_INST_ADC_DATA    0x02
+//#define SERVER_TO_NODE_CMD_SLEEP_TIME    0x20
+
+
+
+#define NODE_TO_SERVER_INST_HEART            0x10
+#define NODE_TO_SERVER_INST_ADC_DATA         0x20
+#define NODE_TO_SERVER_INST_REPORT_STATUS    0x40
 
 typedef struct
 {
@@ -61,6 +75,10 @@ uint8_t WiFi_Enter_CMD_mode(void);
 uint8_t WireLess_Send_data(Node_Instru_Packet *node_instru_packet,uint32_t len );
 uint8_t  WiFi_GetUDPData(void);
 uint8_t WireLess_Send_ADC_data(void);
+uint8_t WiFi_Send_Report(Node_Instru_Packet *node_instru_packet,
+                        uint16_t temp,uint16_t adc1,uint16_t adc_2,uint16_t power,uint8_t addr);
+
+
 
 
 #endif

@@ -9,6 +9,8 @@ void Led_Close(void);
 void Led_toggle(void);
 void PowerControl_Init(void);
 void PowerControl_DeInit(void);
+void ADXL362_DeInit(void);
+
 #endif
 
 

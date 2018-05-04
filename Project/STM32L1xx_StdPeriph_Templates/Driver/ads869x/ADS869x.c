@@ -169,6 +169,22 @@ void ADS869x_Init(void)
 
 void ADS869x_DeInit(void)
 {
+    GPIO_InitTypeDef  GPIO_InitStructure;
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA|RCC_AHBPeriph_GPIOB, ENABLE);	//GPIOA时钟 GPIOB时钟
+
+    //ADC_CON
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_40MHz;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4|GPIO_Pin_5|GPIO_Pin_3;
+    GPIO_InitStructure.GPIO_OType = GPIO_PuPd_UP;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14|GPIO_Pin_15|GPIO_Pin_13;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);	  //初始化GPIOD3,6
 
 }
 
@@ -404,12 +420,19 @@ void Timinit(void)
 
 
 }
-
+void DeintTim(void)
+{
+    //timer init
+    TIM_DeInit(TIM2);
+}
 ElemType sdat;
 static uint16_t adc_packet_len=0;
 static uint16_t collection_cnt=0;
 static uint8_t _test_buffer[256];
-static uint8_t ignore_num=0;;
+static uint8_t ignore_num=0;
+
+
+
 void ADS869x_Start_Sample(void)  
 {
     uint8_t result,ii;
@@ -418,6 +441,7 @@ void ADS869x_Start_Sample(void)
     adc_packet_len= Get_ADC_LEN();
     collection_cnt=0;
     ADS869x_Init();
+    FM25VXX_Init();
     ignore_num=0;
     Timinit();
     PowerControl_Init();
@@ -459,10 +483,67 @@ void ADS869x_Start_Sample(void)
     //while(1);
 #endif
     ADS869x_DeInit();
+    //FM25VXX_DisInit();
+    DeintTim();
     PowerControl_DeInit();
     delay_ms(10);
 
 }	
+
+uint8_t ADS869x_Start_Sample_little(uint16_t *adc1,uint16_t *adc2)  
+{
+    uint8_t result,i;
+    uint16_t send_pkt=0,* adc_p;
+    uint16_t adc_wait_overflow=0;
+    uint16_t adc_last=0,adc_current=0;
+    uint32_t adc_sum=0;
+    adc_packet_len= Get_ADC_LEN();
+    collection_cnt=0;
+    ADS869x_Init();
+    ignore_num=0;
+    Timinit();
+    //开始等待ADC数据采集完成
+    for(send_pkt=0;;)  //为了不死在这个死循环里面
+    {
+        delay_ms(1);  //延时1ms
+        adc_wait_overflow++;
+        if(adc_wait_overflow>=1000*15)  //> 15S break;
+            break;
+//      不停的获取adc的值
+        result=QueueOut(GetFifo_Piot(),&sdat);
+        if(result==QueueOperateOk){    //有新的数据
+            adc_p =(uint16_t *)sdat;
+            for(i=0;i<(adc_packet_len>>1);i++)
+            {
+                if(adc_current<adc_p[i])
+                    adc_current=adc_p[i];
+                adc_sum+=adc_p[i];
+            }
+            adc_sum/=(adc_packet_len>>1);
+            *adc1 =adc_current-adc_sum;
+            printf("adc sum is %d \n",*adc1);
+            memfree(sdat);
+            sdat=NULL;
+            send_pkt++;
+        }
+        if(send_pkt>=1){
+            break;
+        }
+    }
+    ADS869x_DeInit();
+    DeintTim();
+    delay_ms(10);
+
+}
+
+
+void ADS869x_Stop_Sample(void)  
+{
+    ADS869x_DeInit();
+    DeintTim();
+
+}
+
 static uint16_t adc_data=0;
 static uint8_t *buffer;
 #define IGNORE_NUM 32

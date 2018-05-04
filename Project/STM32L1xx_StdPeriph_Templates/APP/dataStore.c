@@ -33,6 +33,7 @@ uint8_t Init_GlobalData()
     CC2530_Global_Para.ADC_Speed = ADC_SPEED_DEFAULT;
     CC2530_Global_Para.boot_flag=BOOT_ALREADY;
     CC2530_Global_Para.CRC_=0;
+    CC2530_Global_Para.node_num= NODE_NUM;
     return 1;
 }
 
@@ -131,6 +132,11 @@ uint16_t Get_ADC_LEN(void)
     
 }
 
+uint8_t Get_ADC_Node_NUM(void)
+{
+    return CC2530_Global_Para.node_num;
+    
+}
 
 uint8_t SetGlobalData(void)
 {

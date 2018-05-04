@@ -53,7 +53,7 @@
   
 typedef struct
 {
-  uint32_t ADC_Resolution;                /*!< Selects the resolution of the conversion.
+   uint32_t ADC_Resolution;                /*!< Selects the resolution of the conversion.
                                                This parameter can be a value of @ref ADC_Resolution */
   
   FunctionalState ADC_ScanConvMode;       /*!< Specifies whether the conversion is performed in

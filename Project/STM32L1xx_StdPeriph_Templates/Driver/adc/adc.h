@@ -3,7 +3,9 @@
 
 #include "stm32l1xx_adc.h"
    
-void ADCStartSample(void);  
+uint16_t ADC_Config(void);
+
+
 #endif 
 
 

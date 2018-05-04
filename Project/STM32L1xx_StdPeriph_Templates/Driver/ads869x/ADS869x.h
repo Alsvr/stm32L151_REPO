@@ -90,5 +90,6 @@ void ADS869x_NAP_EXIT(void);																			//退出睡眠模式
 void ADS869x_GO_PD(void);																			//进入PD模式
 void ADS869x_PD_EXIT(void);																			//退出PD模式
 void ADS869x_Start_Sample(void);
+uint8_t ADS869x_Start_Sample_little(uint16_t *adc1,uint16_t *adc2);
 
 #endif

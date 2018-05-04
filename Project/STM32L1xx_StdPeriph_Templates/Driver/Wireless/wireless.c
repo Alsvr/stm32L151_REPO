@@ -4,6 +4,7 @@
 #include <string.h>
 #include "dataStore.h"
 #include "FM25WXX.h"
+#include "dataStore.h"
 //433M AUX --->PA1
 //433M_MO  --->PB8
 //433M_M1  --->PB9
@@ -14,7 +15,7 @@
 #define M1_GPIO GPIO_Pin_9
 #define POWER_GPIO GPIO_Pin_10
 uint8_t wireless_rx_buff[512]; 
-#define wireless_rx_buff_size  sizeof(wireless_rx_buff)
+#define wireless_rx_buff_size  512
 uint8_t wireless_process_buff[512];  
 static int wireless_rx_cnt=0;
 static uint8_t bu[2]={0,0};
@@ -106,10 +107,10 @@ const char AT_WSCAN[] = {"AT+WSCAN\r"};
 const char AT_UART[] = {"AT+UART\r"};
 const char AT_SOCKA[] = {"AT+SOCKA\r"};
 const char AT_MSLP[] = {"AT+MSLP\r"};
-const char AT_WSTA[] = {"AT+WSTA=Widora-1424,NONE\r"};
+const char AT_WSTA[] = {"AT+WSTA=Widora-859E,12345678\r"};
 const char AT_WKMOD[] = {"AT+WKMOD=TRANS\r"};
 const char AT_WMODE[] = {"AT+WMODE=STA\r"};
-const char AT_SLPTYPE[] = {"AT+SLPTYPE=4,5\r"};
+const char AT_SLPTYPE[] = {"AT+SLPTYPE=3,5\r"};
 const char AT_SOCKA_S[] = {"AT+SOCKA=UDPC,192.168.8.1,8989\r"};
 const char AT_BACK_DISCONNECTION[] = {"+OK=DISCONNECTED"};
 
@@ -820,7 +821,7 @@ uint8_t  WiFi_GetUDPData(void)
     return 1;
 }
 
-
+/*
 uint8_t WireLess_Send_data(Node_Instru_Packet *node_instru_packet,uint32_t len )
 {
     uint32_t i = 0;
@@ -847,6 +848,61 @@ uint8_t WireLess_Send_data(Node_Instru_Packet *node_instru_packet,uint32_t len )
     return 0;
    
 }
+*/
+
+uint8_t WiFi_Send_Report(Node_Instru_Packet *node_instru_packet,
+                        uint16_t temp,uint16_t adc1,uint16_t adc_2,uint16_t power,uint8_t addr)
+{
+    uint32_t i = 0;
+    uint8_t *p=0;
+    node_instru_packet->header1= NODE_INSTRU_HEAD1;
+    node_instru_packet->header2= NODE_INSTRU_HEAD2;
+    node_instru_packet->instru = NODE_TO_SERVER_INST_HEART;
+    node_instru_packet->node_addr =addr;
+    node_instru_packet->data[0] = temp&0xff;
+    node_instru_packet->data[1] =(temp>>8)&0xff;
+    node_instru_packet->data[2] =adc1&0xff;
+    node_instru_packet->data[3] =(adc1>>8)&0xff;
+
+    node_instru_packet->data[4] =adc_2&0xff;
+    node_instru_packet->data[5] =(adc_2>>8)&0xff;
+
+    node_instru_packet->data[6] =power&0xff;
+    node_instru_packet->data[7] =(power>>8)&0xff;
+    
+    p=(uint8_t *)node_instru_packet;
+     
+    for(i=0;i<sizeof(Node_Instru_Packet);i++)
+    {
+        USART_SendData(USART2,(uint8_t)*(p++)); //当产生接收中断的时候,接收该数据，然后再从串口1把数据发送出去
+        while(USART_GetFlagStatus(USART2,USART_FLAG_TXE)==RESET);//等待发送数据完毕);
+    }
+    
+    __disable_irq();
+    At_cmd_state=AT_DATA_WAIT_DATA;
+    wireless_rx_cnt=0;
+    __enable_irq();
+    memset((void *)node_instru_packet,0,sizeof(Node_Instru_Packet));
+    for(i=0;i<3000;i++)   //wait 3S
+    {
+        delay_ms(1);
+        if(wireless_rx_cnt>=sizeof(Node_Instru_Packet))
+        {
+            memcpy(node_instru_packet, wireless_rx_buff, wireless_rx_cnt);
+            if((node_instru_packet->header1 == NODE_INSTRU_HEAD1)&&
+                (node_instru_packet->header1 == NODE_INSTRU_HEAD1))
+            {
+                if(node_instru_packet->instru == SERVER_TO_NODE_CMD)
+                {
+                    printf("Get the Server cmd\n");
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+   
+}
 
 uint8_t WireLess_Send_ADC_data(void)
 {
@@ -857,12 +913,25 @@ uint8_t WireLess_Send_ADC_data(void)
     p=(uint8_t *)&node_instru_packet;
     printf("start send data to server!\n");
     node_instru_packet.instru= NODE_TO_SERVER_INST_ADC_DATA;
-    node_instru_packet.header1 = 0xf1;
-    node_instru_packet.header2 = 0xf2;
-    for(node_instru_packet.commend1=0,snd_pkt=0;snd_pkt<adc_packet_len;snd_pkt++){
+    node_instru_packet.header1 = NODE_INSTRU_HEAD1;
+    node_instru_packet.header2 = NODE_INSTRU_HEAD2;
+    node_instru_packet.node_addr =Get_ADC_Node_NUM();
+    node_instru_packet.commend1=0;
+    node_instru_packet.commend2=0;
+    node_instru_packet.tail1=NODE_INSTRU_TAIL1;
+    node_instru_packet.tail2=NODE_INSTRU_TAIL2;
+    for(snd_pkt=0;snd_pkt<adc_packet_len;snd_pkt++){
         
         FM25VXX_Read(node_instru_packet.data,snd_pkt*adc_packet_len,adc_packet_len);
         p=(uint8_t *)&node_instru_packet;
+        node_instru_packet.commend1=(snd_pkt>>8)&0xff;  
+        node_instru_packet.commend2=(snd_pkt)&0xff; 
+
+        if(snd_pkt==(adc_packet_len-1)){
+                node_instru_packet.commend3 = 0x01;
+            }
+        else
+            node_instru_packet.commend3 = 0x00;
         //printf("send p is%d len is %d !\n",snd_pkt,adc_packet_len);
         for(i=0;i<sizeof(node_instru_packet);i++)
         {
@@ -870,12 +939,10 @@ uint8_t WireLess_Send_ADC_data(void)
             while(USART_GetFlagStatus(USART2,USART_FLAG_TXE)==RESET);//等待发送数据完毕);
         }
 		delay_ms(10);   //  >5ms  make sure packet div
-        if(snd_pkt==(adc_packet_len-1)){
-                node_instru_packet.commend2 = 1;
-            }
+
         //第一次传输  传输4S 若发送失败则放弃
 
-        node_instru_packet.commend1++;   
+         
     }
     printf("send data to server finish!\n");
     return 0;

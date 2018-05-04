@@ -68,12 +68,14 @@ void Uart_Log_Configuration(void)
 //const char AT_E[] = {"AT+E\r"};
 //const char AT_a[] = {"a"};
 //const char PC_AT_OK[] = {"+OK"};
-const char PC_AT_WANN[] = {"AT+WANN\r"};
+//const char PC_AT_WANN[] = {"AT+WANN\r"};
 //const char AT_WSLK[] = {"AT+WSLK\r"};
 //const char AT_WSCAN[] = {"AT+WSCAN\r"};
 //const char AT_UART[] = {"AT+UART\r"};
 //const char AT_SOCKA[] = {"AT+SOCKA\r"};
 //const char AT_MSLP[] = {"AT+MSLP\r"};
+const char ARM_AT_SET_NUM[] = {"AT+SETNUM=\r"};
+
 void Handler_PC_Command(void)
 {
     uint8_t i=0,*str_start=0;
@@ -81,9 +83,10 @@ void Handler_PC_Command(void)
     {
         if(g_pc_cmd.at_cmd_flag[i] == 1)
         {
-            if(str_start = strstr((const char *)(g_pc_cmd.at_cmd[i]),PC_AT_WANN))
+            if(str_start = strstr((const char *)(g_pc_cmd.at_cmd[i]),ARM_AT_SET_NUM))
             {
                 printf("%d\n",str_start-g_pc_cmd.at_cmd[i]);
+                printf("AT+SETNUM= AT OK\n");
                 g_pc_cmd.at_cmd_flag[i] =0;
 
             }
@@ -111,7 +114,8 @@ void USART1_IRQHandler(void)
                     memcpy(g_pc_cmd.at_cmd[i],uart1_buffer,uart1_cnt);
                     uart1_cnt = 0;
                     g_pc_cmd.at_cmd_flag[i] =1;
-                    printf("i=%d,%s",i,(char *)g_pc_cmd.at_cmd[i]);
+                    //printf("i=%d,%s",i,(char *)g_pc_cmd.at_cmd[i]);
+                    Handler_PC_Command();
                     break;
                 }          
             }

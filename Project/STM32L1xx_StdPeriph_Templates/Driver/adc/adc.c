@@ -85,7 +85,7 @@ uint16_t ADC_Config(void)
   
   /**************/
 
-  power_adc=2600*adc_value_raw;
+  power_adc=2700*adc_value_raw;
 
   ADC_RegularChannelConfig(ADC1, ADC_Channel_17, 1, ADC_SampleTime_384Cycles);
 

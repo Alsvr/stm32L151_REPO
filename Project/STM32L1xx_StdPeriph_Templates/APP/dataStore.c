@@ -204,10 +204,8 @@ int8_t GetAdcOffset(void)
 }
 void OutPutGloablPara(GlobalData_Para *CC2530_Global_Para)
 {   
-    printf("OutPutGloablPara ADC_OFFSET: is %d\n",CC2530_Global_Para->ADC_OFFSET); 
-    printf("OutPutGloablPara ADC_LEN: is %d\n",CC2530_Global_Para->ADC_LEN);
-    printf("OutPutGloablPara CRC_: is %d\n",CC2530_Global_Para->CRC_); 
-    printf("OutPutGloablPara ADC_Speed is :%d\n",CC2530_Global_Para->ADC_Speed);
-    printf("OutPutGloablPara boot_flag is :%d\n",CC2530_Global_Para->boot_flag);
     printf("OutPutGloablPara node num is :%d\n",CC2530_Global_Para->node_num);
+    printf("OutPutGloablPara ADC_LEN: is %d\n",CC2530_Global_Para->ADC_LEN);
+    printf("OutPutGloablPara ADC_Speed is :%d\n",CC2530_Global_Para->ADC_Speed);
+    printf("OutPutGloablPara SSID is :%s\n",CC2530_Global_Para->ssid);    
 }

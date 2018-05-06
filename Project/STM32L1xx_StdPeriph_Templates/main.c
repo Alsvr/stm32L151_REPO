@@ -126,7 +126,7 @@ void TaskHandler(Node_Instru_Packet *node_instru_packet)
     {
 
     }
-    if(node_instru_packet->commend1 ==SERVER_TO_NODE_CMD_START_ADC||
+    if(node_instru_packet->commend1 ==SERVER_TO_NODE_CMD_START_ADC ||
         auto_upload_adc_cnt>=AUTO_UPLOAD_ADC_MAX_CNT)
     {
             ADS869x_Start_Sample();
@@ -145,8 +145,13 @@ uint8_t ConnetTheWifiServer()
 {
     uint8_t ret =0;
     //进行联网
-    WiFi_Enter_CMD_mode();
-    ret=WiFi_WaitLinkOk();
+    if(WiFi_Enter_CMD_mode())
+    {
+        ret=WiFi_WaitLinkOk();
+    }
+    else
+        ret = 0;
+    
     WiFi_Exit_CMD_mode();
     //联网结束   
     return ret;
@@ -247,7 +252,7 @@ int main(void)
 
          }
 #endif
-         auto_upload_adc_cnt++; //30S  update 
+         //auto_upload_adc_cnt++; //30S  update 
 
    
 

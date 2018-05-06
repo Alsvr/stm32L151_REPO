@@ -129,6 +129,34 @@ static uint16_t At_cmd_state = 0;
 
 #define AT_DATA_WAIT_DATA            0x0100
 #define AT_DATA_MASK                 0XFF00
+
+
+
+
+void Reset_CC3200(void)
+{
+    uint8_t i=0 ,re =0;
+    uint8_t * at_p=0;
+    GPIO_InitTypeDef GPIO_InitStructure;
+
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
+    /* Power config*/
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_40MHz;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
+    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    GPIO_ResetBits(GPIOB,GPIO_Pin_8);
+
+    delay_ms(50);
+    GPIO_SetBits(GPIOB,GPIO_Pin_8);
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);  
+
+}
+
+                
 void Send_At_Cmd(const char * p,uint8_t num)
 {
     uint8_t i = 0;
@@ -161,8 +189,8 @@ void WireLess_Send_data(const char * p,uint32_t len )
 
 uint8_t WireLess_check_wifi_ok()
 {
-    Send_At_Cmd(AT_WSLK,1);
-    //if(   
+    Send_At_Cmd("0000",4);
+    delay_ms(10);
 }
 
 
@@ -228,6 +256,10 @@ uint8_t WiFi_try_CMD_mode(void)
 uint8_t WiFi_Enter_CMD_mode(void)
 {
     uint16_t i=0,re;
+
+    //433M_MO  --->PB8
+    Reset_CC3200();
+    WireLess_check_wifi_ok();
     do
     {
         re=WiFi_try_CMD_mode();   //尝试进入cmd 模式 return 0 means fail
@@ -235,9 +267,15 @@ uint8_t WiFi_Enter_CMD_mode(void)
     
     }while((i<14)&&(re==0));
     if(i>=14)
+    {
         printf("Enter wifi cmd mode fail!\n");
+        return 0;
+    }
     else
+    {
         printf("Enter wifi cmd mode pass!\n");    
+        return 1;
+    }
 
 
 }
@@ -255,7 +293,7 @@ uint8_t WiFi_GetWifiStatus(void)
     time_out_cnt = 0;
     do
     {
-        delay_ms(10);
+        delay_ms(200);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
             break;

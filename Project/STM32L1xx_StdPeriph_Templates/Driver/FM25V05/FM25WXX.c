@@ -276,12 +276,12 @@ void test_FM25V05(void)
 {
     uint32_t data=0,i=0,old_data=0;
     data=100;
-	Led_Open();
+	//Led_Open();
     for(i=0;i<(65536/4);i++){
         FM25VXX_Write((uint8_t *)&data,i*sizeof(data),sizeof(data));
         data++;
     }
-	Led_Close();
+	//Led_Close();
     data=0x55555555;
     //for(i=0;i<(65536/4);i++){
     //    FM25VXX_Write((uint8 *)&data,i*sizeof(data),sizeof(data));

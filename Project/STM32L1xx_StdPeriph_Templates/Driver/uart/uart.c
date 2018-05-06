@@ -1,11 +1,13 @@
 #include "uart.h"
 #include "stdio.h"
 #include <string.h>
-static uint8_t uart1_buffer[512];
+#include "dataStore.h"
+
+static uint8_t uart1_buffer[64];
 static uint16_t uart1_cnt=0;
 static PC_CMD_Structure g_pc_cmd;
-
-
+static char cmd_SSID[10];
+static uint8_t cmd_node_num;
 
 
 int fputc(int ch,FILE *f)
@@ -74,7 +76,8 @@ void Uart_Log_Configuration(void)
 //const char AT_UART[] = {"AT+UART\r"};
 //const char AT_SOCKA[] = {"AT+SOCKA\r"};
 //const char AT_MSLP[] = {"AT+MSLP\r"};
-const char ARM_AT_SET_NUM[] = {"AT+SETNUM=\r"};
+const char ARM_AT_SET_NUM[] = {"AT+SETNUM"};
+const char ARM_AT_CONFIG[] = {"AT+CONFIG="};
 
 void Handler_PC_Command(void)
 {
@@ -101,26 +104,53 @@ void Handler_PC_Command(void)
 void USART1_IRQHandler(void)
 {
     uint8_t uart_data=0, i=0;
+    char *str_start=0,*str_end=0;
     if(USART_GetITStatus(USART1,USART_IT_RXNE)!=RESET) //判断是否产生接收中断
     {
         uart_data=USART_ReceiveData(USART1);
-        uart1_buffer[uart1_cnt++] = uart_data ;
+        if(uart1_cnt<sizeof(uart1_buffer))
+            uart1_buffer[uart1_cnt++] = uart_data ;
+        
         if(uart_data == '\n')
         {
+            uart1_cnt = 0;
+
+            str_start = strstr((const char *)uart1_buffer,ARM_AT_CONFIG);
+            if(str_start)
+            {
+                printf("Get AT\n");
+                str_start+=strlen(ARM_AT_CONFIG);
+                if( !(str_end = strchr((const char  *)str_start,',')))
+                    return ;
+                //printf("%s\n",str_start);
+                memcpy(cmd_SSID,str_start,str_end-str_start);
+                cmd_SSID[str_end-str_start]=0;
+                //printf("%s\n",cmd_SSID);
+                str_start=str_end+1;
+                
+                cmd_node_num=(*str_start);
+                if(!(cmd_node_num>='1'&&cmd_node_num<='4'))
+                    //printf("node is %d\n",cmd_node_num-'0');
+                    return ;
+                Set_Node_NUM(cmd_node_num-'0');
+                SetWifiSSID((void *)cmd_SSID,sizeof(cmd_SSID));
+                SetGlobalData();              
+
+            }
+            /*
             for(i=0;i<sizeof(g_pc_cmd.at_cmd_flag);i++)
             {
-                if(g_pc_cmd.at_cmd_flag[i] == 0)
+                if(g_pc_cmd.at_cmd_flag[i] == 0)  //empty fifo
                 {
                     memcpy(g_pc_cmd.at_cmd[i],uart1_buffer,uart1_cnt);
                     uart1_cnt = 0;
                     g_pc_cmd.at_cmd_flag[i] =1;
-                    //printf("i=%d,%s",i,(char *)g_pc_cmd.at_cmd[i]);
                     Handler_PC_Command();
                     break;
                 }          
             }
-            if(i == sizeof(g_pc_cmd.at_cmd_flag))
-                uart1_cnt = 0;
+            */
+
         }
     }
 

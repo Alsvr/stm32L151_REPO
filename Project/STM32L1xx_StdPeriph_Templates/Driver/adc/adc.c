@@ -7,20 +7,25 @@
 //ADC_SCLK  PB13
 //ADC_DOUT  PB14
 
-ADC_InitTypeDef         ADC_InitStructure;
-static uint16_t ADCVal;
+const uint16_t power_rate_list[10]={00,2600,2700,2800,2900,3100,3200,3400,3500,3600};
+
+static uint16_t power_rate;
 static uint32_t power_adc =0;
+
+static uint32_t adc_value_raw =0;
+static uint16_t adc_Vrefint_cal =0;
 uint16_t ADC_Config(void)
 {
 
   GPIO_InitTypeDef GPIO_InitStructure;
-
+  ADC_InitTypeDef   ADC_InitStructure;
+  uint8_t i=0;
   /* Enable The HSI (16Mhz) */
   RCC_HSICmd(ENABLE);
 
-  /* Enable the GPIOF or GPIOA Clock */
+  /* Enable the GPIOA Clock */
   RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
-  /* Configure PF.11 (ADC Channel11) or PA.05 (ADC Channe5) in analog mode */
+  /* Configure PA.0 (ADC Channe0)in analog mode */
   GPIO_InitStructure.GPIO_Pin =  GPIO_Pin_0;
   GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AN;
   GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_NOPULL;
@@ -33,29 +38,25 @@ uint16_t ADC_Config(void)
   
   /* Enable ADC1 clock */
   RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE);
-  
-//#ifdef USE_STM32L152D_EVAL
-//  /* Select ADC Bank channel */
-//  ADC_BankSelection(ADC1, ADC_Bank_B);
-//#endif
-  
+
+  ADC_DeInit(ADC1);
   ADC_StructInit(&ADC_InitStructure);
   ADC_InitStructure.ADC_Resolution = ADC_Resolution_12b;
   ADC_InitStructure.ADC_ScanConvMode = DISABLE;
-  ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
+  ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;
   ADC_InitStructure.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_None;
   ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
   ADC_InitStructure.ADC_NbrOfConversion = 1;
   ADC_Init(ADC1, &ADC_InitStructure);
 
-  /* ADC1 regular channel5 or channel1 configuration */
-  ADC_RegularChannelConfig(ADC1, ADC_Channel_0, 1, ADC_SampleTime_192Cycles);
-
-//  /* Define delay between ADC1 conversions */
-//  ADC_DelaySelectionConfig(ADC1, ADC_DelayLength_Freeze);
-//  
-//  /* Enable ADC1 Power Down during Delay */
-//  ADC_PowerDownCmd(ADC1, ADC_PowerDown_Idle_Delay, ENABLE);
+  /* ADC1 regular channel0 configuration */
+  ADC_RegularChannelConfig(ADC1, ADC_Channel_0, 1, ADC_SampleTime_384Cycles);
+  
+  /* Define delay between ADC1 conversions */
+  ADC_DelaySelectionConfig(ADC1, ADC_DelayLength_Freeze);
+  
+  /* Enable ADC1 Power Down during Delay */
+  ADC_PowerDownCmd(ADC1, ADC_PowerDown_Idle_Delay, ENABLE);
   
   /* Enable ADC1 */
   ADC_TempSensorVrefintCmd(ENABLE);
@@ -71,25 +72,22 @@ uint16_t ADC_Config(void)
   /* Start ADC1 Software Conversion */
   ADC_SoftwareStartConv(ADC1);
 
-  /* Wait until ADC1 ON status */
-  while (ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC) == RESET)
+  for(i=0;i<16;i++)
   {
+      while (ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC) == RESET)
+      {
+      }
+      adc_value_raw += ADC_GetConversionValue(ADC1);
   }
-  ADCVal = ADC_GetConversionValue(ADC1);
-  printf("Adc  is %d\n",ADCVal);
+  adc_value_raw >>=4;
+  
+  //printf("Adc mease is %d\n",adc_value_raw);
+  
+  /**************/
 
-    /* Start ADC1 Software Conversion */
-//  ADC_SoftwareStartConv(ADC1);
+  power_adc=2600*adc_value_raw;
 
-//  /* Wait until ADC1 ON status */
-//  while (ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC) == RESET)
-//  {
-//  }
-//  ADCVal = ADC_GetConversionValue(ADC1);
-
-  power_adc=1200*ADCVal;
-
-  ADC_RegularChannelConfig(ADC1, ADC_Channel_17, 1, ADC_SampleTime_192Cycles);
+  ADC_RegularChannelConfig(ADC1, ADC_Channel_17, 1, ADC_SampleTime_384Cycles);
 
   ADC_Cmd(ADC1, ENABLE);
   
@@ -101,17 +99,38 @@ uint16_t ADC_Config(void)
 
   /* Start ADC1 Software Conversion */
   ADC_SoftwareStartConv(ADC1);
-
+  //while(1)
+  //{
   /* Wait until ADC1 ON status */
-  while (ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC) == RESET)
+  for(i=0;i<16;i++)
   {
+      while (ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC) == RESET)
+      {
+      }
+      adc_value_raw += ADC_GetConversionValue(ADC1);
   }
-  ADCVal = ADC_GetConversionValue(ADC1);
-  printf("Adc ref is %d\n",ADCVal);
+  adc_value_raw >>=4;
+  //printf("Adc ref is %d\n",adc_value_raw);
+  //adc_Vrefint_cal = *(__IO uint16_t *)(0X1FF80078);
+  power_adc/=adc_value_raw + 10;
 
-  power_adc/=ADCVal;
+  
 
-  printf("power is %d\n",power_adc);
+  ADC_DeInit(ADC1);
+
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, DISABLE);
+  
+  for(i=9;i>=0;i--)
+  {
+      if(power_adc>power_rate_list[i])
+      {
+          power_rate=(i+1)*10;
+          printf("power voltage is %d%% v=%d\n",power_rate,power_adc);
+          return power_rate;
+      }
+      
+  }
+  
   return 100;
 
 }

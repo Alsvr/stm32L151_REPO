@@ -5,6 +5,7 @@
 #include "dataStore.h"
 #include "FM25WXX.h"
 #include "dataStore.h"
+#include "ADS869x.h"
 //433M AUX --->PA1
 //433M_MO  --->PB8
 //433M_M1  --->PB9
@@ -107,10 +108,12 @@ const char AT_WSCAN[] = {"AT+WSCAN\r"};
 const char AT_UART[] = {"AT+UART\r"};
 const char AT_SOCKA[] = {"AT+SOCKA\r"};
 const char AT_MSLP[] = {"AT+MSLP\r"};
-const char AT_WSTA[] = {"AT+WSTA=Widora-859E,12345678\r"};
+//const char AT_WSTA[] = {"AT+WSTA=Widora-859E,12345678\r"};
+const char AT_WSTA_HEAD[] = {"AT+WSTA="};
+const char AT_WSTA_PASSWORD[] = {",12345678\r"};
 const char AT_WKMOD[] = {"AT+WKMOD=TRANS\r"};
 const char AT_WMODE[] = {"AT+WMODE=STA\r"};
-const char AT_SLPTYPE[] = {"AT+SLPTYPE=3,5\r"};
+const char AT_SLPTYPE[] = {"AT+SLPTYPE=4,10\r"};
 const char AT_SOCKA_S[] = {"AT+SOCKA=UDPC,192.168.8.1,8989\r"};
 const char AT_BACK_DISCONNECTION[] = {"+OK=DISCONNECTED"};
 
@@ -615,9 +618,13 @@ uint8_t  WiFi_SetWKMOD(char *str)
 uint8_t  WiFi_SetWSTA(char *str)
 {
     uint16_t time_out_cnt = 0;
-
+    char wsta_str[64];
+    strcpy (wsta_str,AT_WSTA_HEAD);
+    strcat (wsta_str,GetWifiSSID());
+    strcat (wsta_str,AT_WSTA_PASSWORD);
+    printf("wsta string is %s\n",wsta_str);
     __disable_irq();
-    Send_At_Cmd(AT_WSTA,strlen(AT_WSTA));    
+    Send_At_Cmd(wsta_str,strlen(wsta_str));    
     At_cmd_state = AT_CMD_WAIT_AT_BACK;
     __enable_irq(); 
 
@@ -851,7 +858,9 @@ uint8_t WireLess_Send_data(Node_Instru_Packet *node_instru_packet,uint32_t len )
 */
 
 uint8_t WiFi_Send_Report(Node_Instru_Packet *node_instru_packet,
-                        uint16_t temp,uint16_t adc1,uint16_t adc_2,uint16_t power,uint8_t addr)
+                        uint16_t temp,uint16_t adc1,uint16_t adc_2,
+                        uint16_t power,uint8_t addr,
+                        uint16_t udp_index)
 {
     uint32_t i = 0;
     uint8_t *p=0;
@@ -869,6 +878,9 @@ uint8_t WiFi_Send_Report(Node_Instru_Packet *node_instru_packet,
 
     node_instru_packet->data[6] =power&0xff;
     node_instru_packet->data[7] =(power>>8)&0xff;
+
+    node_instru_packet->data[8] =udp_index&0xff;
+    node_instru_packet->data[9] =(udp_index>>8)&0xff;
     
     p=(uint8_t *)node_instru_packet;
      
@@ -882,6 +894,7 @@ uint8_t WiFi_Send_Report(Node_Instru_Packet *node_instru_packet,
     At_cmd_state=AT_DATA_WAIT_DATA;
     wireless_rx_cnt=0;
     __enable_irq();
+    printf("Send report to server\n");
     memset((void *)node_instru_packet,0,sizeof(Node_Instru_Packet));
     for(i=0;i<3000;i++)   //wait 3S
     {
@@ -915,14 +928,14 @@ uint8_t WireLess_Send_ADC_data(void)
     node_instru_packet.instru= NODE_TO_SERVER_INST_ADC_DATA;
     node_instru_packet.header1 = NODE_INSTRU_HEAD1;
     node_instru_packet.header2 = NODE_INSTRU_HEAD2;
-    node_instru_packet.node_addr =Get_ADC_Node_NUM();
+    node_instru_packet.node_addr =Get_Node_NUM();
     node_instru_packet.commend1=0;
     node_instru_packet.commend2=0;
     node_instru_packet.tail1=NODE_INSTRU_TAIL1;
     node_instru_packet.tail2=NODE_INSTRU_TAIL2;
     for(snd_pkt=0;snd_pkt<adc_packet_len;snd_pkt++){
         
-        FM25VXX_Read(node_instru_packet.data,snd_pkt*adc_packet_len,adc_packet_len);
+        FM25VXX_Read(node_instru_packet.data,snd_pkt*ADC_PACKET_SIZE,ADC_PACKET_SIZE);
         p=(uint8_t *)&node_instru_packet;
         node_instru_packet.commend1=(snd_pkt>>8)&0xff;  
         node_instru_packet.commend2=(snd_pkt)&0xff; 

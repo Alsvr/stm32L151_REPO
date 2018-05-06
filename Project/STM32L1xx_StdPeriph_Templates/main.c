@@ -84,24 +84,55 @@ void NVIC_Config(void);
 void TaskHandler(Node_Instru_Packet *node_instru_packet)
 {
     uint32_t cmd;
-    if(node_instru_packet->commend1 ==SERVER_TO_NODE_CMD_START_ADC||
-        auto_upload_adc_cnt>AUTO_UPLOAD_ADC_MAX_CNT)
-    {
-            ADS869x_Start_Sample();
-            WireLess_Send_ADC_data();
-            auto_upload_adc_cnt=0;
-    }
+
     
     if(node_instru_packet->commend2 ==SERVER_TO_NODE_CMD_SET_ADC)
     {
+        uint16_t adc_len=0;
+        uint16_t adc_speed=0;
+        //adc_len =node_instru_packet->data[0]+(node_instru_packet->data[1]<<8);
+        adc_speed =node_instru_packet->data[2]+(node_instru_packet->data[3]<<8);
+        printf("get adc len is %d,sp is %d\n",adc_len,adc_speed);
+        
+        
+         switch(adc_speed)
+        {
+            case 0:
+            case 1:
+                adc_len=64;
+                adc_speed=1000;
+            break;
+            case 2:
+                adc_len=128;
+                adc_speed=2000;
+            break;
+            
+            case 3:
+                adc_len=256;
+                adc_speed=4000;
+            break;
+            default:
+                adc_len=64;
+                adc_speed=1000;
+            break;
+        }
 
+        SetADCLen(adc_len);   //传入的是256个16位数据
+        SetADCSpeed(adc_speed);   //传入的是256个16位数据
+        
     }    
 
     if(node_instru_packet->commend3 ==SERVER_TO_NODE_CMD_CON_SAMP)
     {
 
     }
-    
+    if(node_instru_packet->commend1 ==SERVER_TO_NODE_CMD_START_ADC||
+        auto_upload_adc_cnt>=AUTO_UPLOAD_ADC_MAX_CNT)
+    {
+            ADS869x_Start_Sample();
+            WireLess_Send_ADC_data();
+            auto_upload_adc_cnt=0;
+    }
     
 }
 uint8_t Rx[1024];
@@ -121,7 +152,7 @@ uint8_t ConnetTheWifiServer()
     return ret;
 }
 static uint16_t adc1,adc2,power_rate;
-
+static uint16_t udp_index=0;
 int main(void)
 {
   /*!< At this stage the microcontroller clock setting is already configured, 
@@ -141,20 +172,23 @@ int main(void)
     Uart_Log_Configuration();
     delay_init(32);
     FM25VXX_Init();
-    
     globaldata_p=GetGlobalData();
+    printf("Please enter AT Config AT+CONFIG\r\n");
     
-    //printf("USART1 TEST\r\n");
+    delay_ms(3000);
+    
+    
     Init_CC3200(0xC0,0x1210,115200,80);
     Led_Close();
     ADS869x_Init();
     RTC_Config();
-    Led_Close();
+    auto_upload_adc_cnt = AUTO_UPLOAD_ADC_MAX_CNT;
 #if 1
     while(1)
     {
         wifi_connect_flag=0;
         PowerControl_Init();
+       
         bsp_InitDS18B20();
         if(!DS18B20_ReadTempStep1())
             printf("temp step1 fail!\n");
@@ -162,7 +196,6 @@ int main(void)
         delay_ms(2000);
         wifi_connect_flag=ConnetTheWifiServer();
         //delay for temp
-        
         temp =DS18B20_ReadTempStep2();  //读取温度
         printf("temp is %f ^C\n",temp * 0.0625);
         bsp_DeInitDS18B20();
@@ -171,11 +204,14 @@ int main(void)
         Led_Open();
         ADS869x_Start_Sample_little(&adc1,&adc2);
         Led_Close();
+        
         if(wifi_connect_flag)
         {
+            udp_index++;
             //发送查询包到服务器
-            if(WiFi_Send_Report(&node_instru_packet,temp,12,100,98,Get_ADC_Node_NUM()))
+            if(WiFi_Send_Report(&node_instru_packet,temp,adc1,adc2,power_rate,Get_Node_NUM(),udp_index))
             {
+                
                 printf("re node_instru_packet.instru is   0x%d\n",node_instru_packet.instru);
                 printf("re node_instru_packet.commend1 is 0x%d\n",node_instru_packet.commend1);
                 printf("re node_instru_packet.commend2 is 0x%d\n",node_instru_packet.commend2);
@@ -198,6 +234,7 @@ int main(void)
         }
         PowerControl_DeInit();
         //Handler_PC_Command();
+        printf("Main Go to Sleep\n");
 #if 1
          //进入休眠模式 30s
          Enter_Stop_Mode(); //30S
@@ -212,7 +249,9 @@ int main(void)
 #endif
          auto_upload_adc_cnt++; //30S  update 
 
-    }
+   
+
+        }
 
 
 

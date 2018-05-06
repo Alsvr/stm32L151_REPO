@@ -388,17 +388,20 @@ uint16_t ADS869x_ReadADCData(void)
     return (temp>>16);//返回数据
 }
 
-void Timinit(void)
+void Timinit(uint16_t speed)
 {
     //timer init
+    uint16_t tim_prescaler =0;
     TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
     NVIC_InitTypeDef NVIC_InitStructure;
-
-    
+    if((speed!=1000)||(speed!=2000)||(speed!=4000))
+        tim_prescaler=1000;
+    tim_prescaler=(500000/speed)-1;
+    printf("tim_prescaler is %d\n",tim_prescaler);
     PowerControl_Init();
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
-    TIM_TimeBaseStructure.TIM_Period = 127;
-    TIM_TimeBaseStructure.TIM_Prescaler = 80;
+    TIM_TimeBaseStructure.TIM_Period = 63;
+    TIM_TimeBaseStructure.TIM_Prescaler = 160;
     TIM_TimeBaseStructure.TIM_ClockDivision = 0;
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
 
@@ -426,7 +429,7 @@ void DeintTim(void)
     TIM_DeInit(TIM2);
 }
 ElemType sdat;
-static uint16_t adc_packet_len=0;
+static uint16_t adc_packet_len=0;  //the num of packet of 128
 static uint16_t collection_cnt=0;
 static uint8_t _test_buffer[256];
 static uint8_t ignore_num=0;
@@ -443,7 +446,7 @@ void ADS869x_Start_Sample(void)
     ADS869x_Init();
     FM25VXX_Init();
     ignore_num=0;
-    Timinit();
+    Timinit(GetADCSpeed());
     PowerControl_Init();
     //while(1){}
     //    开始等待ADC数据采集完成
@@ -458,7 +461,7 @@ void ADS869x_Start_Sample(void)
         if(result==QueueOperateOk){    //有新的数据
  
             //NvRam_Write_Data(sdat,recv_pkt*ADC_SIZE_16*2,ADC_SIZE_16*2);
-            FM25VXX_Write(sdat,send_pkt*adc_packet_len,adc_packet_len);   
+            FM25VXX_Write(sdat,send_pkt*ADC_PACKET_SIZE,ADC_PACKET_SIZE);   
             //FM25VXX_Read(_test_buffer,send_pkt*adc_packet_len,adc_packet_len);
                         
             //for(ii=0;ii<adc_packet_len;ii++)
@@ -501,7 +504,7 @@ uint8_t ADS869x_Start_Sample_little(uint16_t *adc1,uint16_t *adc2)
     collection_cnt=0;
     ADS869x_Init();
     ignore_num=0;
-    Timinit();
+    Timinit(1000);
     //开始等待ADC数据采集完成
     for(send_pkt=0;;)  //为了不死在这个死循环里面
     {
@@ -513,13 +516,13 @@ uint8_t ADS869x_Start_Sample_little(uint16_t *adc1,uint16_t *adc2)
         result=QueueOut(GetFifo_Piot(),&sdat);
         if(result==QueueOperateOk){    //有新的数据
             adc_p =(uint16_t *)sdat;
-            for(i=0;i<(adc_packet_len>>1);i++)
+            for(i=0;i<(ADC_PACKET_SIZE>>1);i++)
             {
                 if(adc_current<adc_p[i])
                     adc_current=adc_p[i];
                 adc_sum+=adc_p[i];
             }
-            adc_sum/=(adc_packet_len>>1);
+            adc_sum/=(ADC_PACKET_SIZE>>1);
             *adc1 =adc_current-adc_sum;
             printf("adc sum is %d \n",*adc1);
             memfree(sdat);

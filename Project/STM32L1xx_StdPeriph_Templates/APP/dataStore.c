@@ -1,13 +1,13 @@
 #include "dataStore.h"
-
-
+#include "stdio.h"
+#include <string.h>
 #define DATA_EEPROM_START_ADDR     0x08080000
 #define DATA_EEPROM_END_ADDR       0x0808007F  //128 words
 #define DATA_EEPROM_PAGE_SIZE      0x1
 #define MAX_SUM_CRC_ERROR 20
 
 
-uint8_t SetGlobalData(void);
+
 void OutPutGloablPara(GlobalData_Para *CC2530_Global_Para);
 
 
@@ -34,6 +34,8 @@ uint8_t Init_GlobalData()
     CC2530_Global_Para.boot_flag=BOOT_ALREADY;
     CC2530_Global_Para.CRC_=0;
     CC2530_Global_Para.node_num= NODE_NUM;
+    memcpy(CC2530_Global_Para.ssid,"985E",5);
+    //CC2530_Global_Para.ssid ="985E";
     return 1;
 }
 
@@ -118,13 +120,30 @@ GlobalData_Para* GetGlobalData(void)
      return &CC2530_Global_Para; 
 }
 
-void SetADCLen(uint8_t Len)   //传入的是256个16位数据
+void SetADCLen(uint16_t Len)   //传入的是256个16位数据
 {
-    if(Len>4)
-        Len=4;
+
     CC2530_Global_Para.ADC_LEN=Len;
+    printf("Set ADC len is %d\n",CC2530_Global_Para.ADC_LEN);
     SetGlobalData();
 }
+
+
+void SetADCSpeed(uint16_t speed)   //传入的是256个16位数据
+{
+
+    CC2530_Global_Para.ADC_Speed=speed;
+    printf("Set ADC speed is %d\n",CC2530_Global_Para.ADC_Speed);
+    SetGlobalData();
+}
+
+uint16_t GetADCSpeed(void)   //传入的是256个16位数据
+{
+
+    return CC2530_Global_Para.ADC_Speed;
+
+}
+
 
 uint16_t Get_ADC_LEN(void)
 {
@@ -132,16 +151,35 @@ uint16_t Get_ADC_LEN(void)
     
 }
 
-uint8_t Get_ADC_Node_NUM(void)
+uint8_t Get_Node_NUM(void)
 {
     return CC2530_Global_Para.node_num;
     
 }
 
+uint8_t Set_Node_NUM(uint8_t num)
+{
+    CC2530_Global_Para.node_num= num;
+    
+}
+
+void SetWifiSSID(uint8_t* str,uint8_t len)   //传入的是256个16位数据
+{
+    memcpy(CC2530_Global_Para.ssid,str,len+1);
+}
+
+uint8_t* GetWifiSSID(void)    
+{
+    return CC2530_Global_Para.ssid;
+}
+
+
 uint8_t SetGlobalData(void)
 {
     uint16_t i=0;
     uint8_t *p=(uint8_t *)&CC2530_Global_Para;
+    printf("SetGlobalData siid is %s",CC2530_Global_Para.ssid);
+    printf("SetGlobalData node is %d",CC2530_Global_Para.node_num);
     CC2530_Global_Para.CRC_=0;
     // 更新CRC累加和
     for(i=0;i<(sizeof(CC2530_Global_Para)-1);i++)
@@ -166,19 +204,10 @@ int8_t GetAdcOffset(void)
 }
 void OutPutGloablPara(GlobalData_Para *CC2530_Global_Para)
 {   
-    printf("ADC_OFFSET:%d\n",CC2530_Global_Para->ADC_OFFSET); 
-    printf("terminal_IP is %d.%d.%d.%d\n",CC2530_Global_Para->terminal_addr[0],
-        CC2530_Global_Para->terminal_addr[1],
-        CC2530_Global_Para->terminal_addr[2],
-        CC2530_Global_Para->terminal_addr[3]);
-    
-    printf("route_addr_IP is %d.%d.%d.%d\n",CC2530_Global_Para->route_addr[0],
-        CC2530_Global_Para->route_addr[1],
-        CC2530_Global_Para->route_addr[2],
-        CC2530_Global_Para->route_addr[3]);
-	printf("ADC_LEN:%d\n",CC2530_Global_Para->ADC_LEN);
-	printf("CRC_:%d\n",CC2530_Global_Para->CRC_); 
-    printf("ADC_Speed:%d\n",CC2530_Global_Para->ADC_Speed);
-    printf("boot_flag:%d\n",CC2530_Global_Para->boot_flag);
-    printf("dummy:%d\n",CC2530_Global_Para->dummy);
+    printf("OutPutGloablPara ADC_OFFSET: is %d\n",CC2530_Global_Para->ADC_OFFSET); 
+    printf("OutPutGloablPara ADC_LEN: is %d\n",CC2530_Global_Para->ADC_LEN);
+    printf("OutPutGloablPara CRC_: is %d\n",CC2530_Global_Para->CRC_); 
+    printf("OutPutGloablPara ADC_Speed is :%d\n",CC2530_Global_Para->ADC_Speed);
+    printf("OutPutGloablPara boot_flag is :%d\n",CC2530_Global_Para->boot_flag);
+    printf("OutPutGloablPara node num is :%d\n",CC2530_Global_Para->node_num);
 }

@@ -76,7 +76,9 @@ uint8_t WireLess_Send_data(Node_Instru_Packet *node_instru_packet,uint32_t len )
 uint8_t  WiFi_GetUDPData(void);
 uint8_t WireLess_Send_ADC_data(void);
 uint8_t WiFi_Send_Report(Node_Instru_Packet *node_instru_packet,
-                        uint16_t temp,uint16_t adc1,uint16_t adc_2,uint16_t power,uint8_t addr);
+                        uint16_t temp,uint16_t adc1,uint16_t adc_2,
+                        uint16_t power,uint8_t addr,
+                        uint16_t udp_index);
 
 
 

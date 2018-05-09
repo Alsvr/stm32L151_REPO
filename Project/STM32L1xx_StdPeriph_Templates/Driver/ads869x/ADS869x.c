@@ -446,6 +446,7 @@ void ADS869x_Start_Sample(void)
     ADS869x_Init();
     FM25VXX_Init();
     ignore_num=0;
+    buffer_cnt = 0;
     Timinit(GetADCSpeed());
     PowerControl_Init();
     //while(1){}
@@ -504,6 +505,7 @@ uint8_t ADS869x_Start_Sample_little(uint16_t *adc1,uint16_t *adc2)
     collection_cnt=0;
     ADS869x_Init();
     ignore_num=0;
+    buffer_cnt = 0;
     Timinit(1000);
     //开始等待ADC数据采集完成
     for(send_pkt=0;;)  //为了不死在这个死循环里面
@@ -549,7 +551,7 @@ void ADS869x_Stop_Sample(void)
 
 static uint16_t adc_data=0;
 static uint8_t *buffer;
-#define IGNORE_NUM 32
+#define IGNORE_NUM 64
 
 void TIM2_IRQHandler(void)
 {
@@ -566,6 +568,7 @@ void TIM2_IRQHandler(void)
         if(ignore_num<IGNORE_NUM)
         {
             ignore_num++;
+            
             return;
         }
         adc_buffer[buffer_cnt++]=adc_data;

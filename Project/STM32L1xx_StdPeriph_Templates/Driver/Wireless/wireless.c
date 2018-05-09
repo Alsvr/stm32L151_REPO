@@ -39,16 +39,16 @@ void wire_less_uart_init(uint32_t buand)
 	//USART2_TX   PA.2 PA.3
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2 | GPIO_Pin_3;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_40MHz;
 	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
 	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;	
 	GPIO_Init(GPIOA, &GPIO_InitStructure); 
 
-	GPIO_PinAFConfig(GPIOA, GPIO_PinSource2, GPIO_AF_USART1);
-	GPIO_PinAFConfig(GPIOA, GPIO_PinSource3, GPIO_AF_USART1);
+	GPIO_PinAFConfig(GPIOA, GPIO_PinSource2, GPIO_AF_USART2);
+	GPIO_PinAFConfig(GPIOA, GPIO_PinSource3, GPIO_AF_USART2);
 
 
-	USART_InitStructure.USART_BaudRate = buand;
+	USART_InitStructure.USART_BaudRate = 115200;
 	USART_InitStructure.USART_WordLength = USART_WordLength_8b;
 	USART_InitStructure.USART_StopBits = USART_StopBits_1;
 	USART_InitStructure.USART_Parity = USART_Parity_No;
@@ -113,7 +113,7 @@ const char AT_WSTA_HEAD[] = {"AT+WSTA="};
 const char AT_WSTA_PASSWORD[] = {",12345678\r"};
 const char AT_WKMOD[] = {"AT+WKMOD=TRANS\r"};
 const char AT_WMODE[] = {"AT+WMODE=STA\r"};
-const char AT_SLPTYPE[] = {"AT+SLPTYPE=4,10\r"};
+const char AT_SLPTYPE[] = {"AT+SLPTYPE=4,5\r"};
 const char AT_SOCKA_S[] = {"AT+SOCKA=UDPC,192.168.8.1,8989\r"};
 const char AT_BACK_DISCONNECTION[] = {"+OK=DISCONNECTED"};
 
@@ -218,12 +218,12 @@ uint8_t WiFi_try_CMD_mode(void)
     if(time_out_cnt >= 10)
     {
 
-        printf("wait a fail\n");
+        printf("wait 'a' fail\n");
         return 0;
     }
     
     __disable_irq();
-    printf("start send a\n");
+    printf("start send 'a'\n");
     Send_At_Cmd(AT_a,strlen(AT_a));    
     At_cmd_state = AT_CMD_WAIT_OK;
     memset(uart2_buffer, 0, sizeof(uart2_buffer));
@@ -258,7 +258,9 @@ uint8_t WiFi_Enter_CMD_mode(void)
     uint16_t i=0,re;
 
     //433M_MO  --->PB8
-    Reset_CC3200();
+
+    //WiFi_Exit_CMD_mode();
+    delay_ms(20);
     WireLess_check_wifi_ok();
     do
     {
@@ -273,7 +275,7 @@ uint8_t WiFi_Enter_CMD_mode(void)
     }
     else
     {
-        printf("Enter wifi cmd mode pass!\n");    
+        printf("Enter wifi cmd mode success!\n");    
         return 1;
     }
 
@@ -393,6 +395,9 @@ uint8_t WiFi_EnterLowPowerMode(void)
 {
     
    uint16_t time_out_cnt = 0;
+    
+    WiFi_Enter_CMD_mode();
+    
     __disable_irq();
     Send_At_Cmd(AT_MSLP,strlen(AT_MSLP));    
     At_cmd_state = AT_CMD_WAIT_AT_BACK;

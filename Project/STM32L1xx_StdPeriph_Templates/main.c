@@ -150,7 +150,9 @@ uint8_t ConnetTheWifiServer()
         ret=WiFi_WaitLinkOk();
     }
     else
+    {
         ret = 0;
+    }
     
     WiFi_Exit_CMD_mode();
     //联网结束   
@@ -180,7 +182,8 @@ int main(void)
     globaldata_p=GetGlobalData();
     printf("Please enter AT Config AT+CONFIG\r\n");
     
-    delay_ms(3000);
+    delay_ms(5000);
+    
     
     
     Init_CC3200(0xC0,0x1210,115200,80);
@@ -191,32 +194,35 @@ int main(void)
 #if 1
     while(1)
     {
+        Reset_CC3200();
         wifi_connect_flag=0;
-        PowerControl_Init();
-       
         bsp_InitDS18B20();
         if(!DS18B20_ReadTempStep1())
-            printf("temp step1 fail!\n");
+                printf("temp step1 fail!\n");
         //try to connect the wifi server 
-        delay_ms(2000);
+        udp_index++;
         wifi_connect_flag=ConnetTheWifiServer();
-        //delay for temp
-        temp =DS18B20_ReadTempStep2();  //读取温度
-        printf("temp is %f ^C\n",temp * 0.0625);
-        bsp_DeInitDS18B20();
-        power_rate=ADC_Config();
-        //start adc sample
-        Led_Open();
-        ADS869x_Start_Sample_little(&adc1,&adc2);
-        Led_Close();
-        
         if(wifi_connect_flag)
         {
-            udp_index++;
+            PowerControl_Init();  //open vibrating sensor power
+            
+            //delay_ms(100);
+            
+            //delay for temperature and  vibrating sensor power stable
+            temp =DS18B20_ReadTempStep2();  //读取温度
+            printf("temp is %f ^C\n",temp * 0.0625);
+            bsp_DeInitDS18B20();//temperature read end
+
+            //read power
+            power_rate=ADC_Config();
+            
+            //read vibrating sensor temp ;
+            ADS869x_Start_Sample_little(&adc1,&adc2);
+            
             //发送查询包到服务器
             if(WiFi_Send_Report(&node_instru_packet,temp,adc1,adc2,power_rate,Get_Node_NUM(),udp_index))
             {
-                
+                delay_ms(3000);
                 printf("re node_instru_packet.instru is   0x%d\n",node_instru_packet.instru);
                 printf("re node_instru_packet.commend1 is 0x%d\n",node_instru_packet.commend1);
                 printf("re node_instru_packet.commend2 is 0x%d\n",node_instru_packet.commend2);
@@ -238,7 +244,7 @@ int main(void)
             
         }
         PowerControl_DeInit();
-        //Handler_PC_Command();
+        WiFi_EnterLowPowerMode();
         printf("Main Go to Sleep\n");
 #if 1
          //进入休眠模式 30s

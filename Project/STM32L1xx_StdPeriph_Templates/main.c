@@ -204,10 +204,10 @@ int main(void)
                 printf("temp step1 fail!\n");
         //try to connect the wifi server 
         udp_index++;
+        PowerControl_Init();  //open vibrating sensor power
         wifi_connect_flag=ConnetTheWifiServer();
         if(wifi_connect_flag)
         {
-            PowerControl_Init();  //open vibrating sensor power
             
             //delay_ms(100);
             
@@ -225,7 +225,7 @@ int main(void)
             //发送查询包到服务器
             if(WiFi_Send_Report(&node_instru_packet,temp,adc1,adc2,power_rate,Get_Node_NUM(),udp_index))
             {
-                delay_ms(3000);
+                delay_ms(2000);
                 printf("re node_instru_packet.instru is   0x%d\n",node_instru_packet.instru);
                 printf("re node_instru_packet.commend1 is 0x%d\n",node_instru_packet.commend1);
                 printf("re node_instru_packet.commend2 is 0x%d\n",node_instru_packet.commend2);

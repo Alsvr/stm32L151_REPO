@@ -7,18 +7,19 @@
 #include "mempool.h"
 #include "dataStore.h"
 #include "FM25WXX.h"
-#define N  5  //中值滤波算法 数据个数
+//#define N  5  //中值滤波算法 数据个数
 
 //定义全局变量
-unsigned char G_ACTIVE_FLAG=0x00;  //定义输入电压过高标志位
+//unsigned char G_ACTIVE_FLAG=0x00;  //定义输入电压过高标志位
 
-unsigned long G_VAL=131076; 
-float G_RANGE=6;
-unsigned char G_F_Flag =0;
+//unsigned long G_VAL=131076; 
+//float G_RANGE=6;
+//unsigned char G_F_Flag =0;
 
 static uint16_t adc_buffer[512];
 static uint16_t buffer_cnt=0;
 
+#if 0
 //滤波算法  中值滤波算法
 /*************************
 程序功能：滤波算法  中值滤波算法
@@ -127,6 +128,9 @@ unsigned long Get_Vol(void)
 	}
 	return Rvol;		
 }
+
+#endif
+
 /*************************
 程序功能：ADS869x_IO_Init
 参数：无
@@ -143,23 +147,29 @@ unsigned long Get_Vol(void)
 void ADS869x_Init(void)
 {
     GPIO_InitTypeDef  GPIO_InitStructure;
-    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA|RCC_AHBPeriph_GPIOB, ENABLE);	//GPIOA时钟 GPIOB时钟
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA|RCC_AHBPeriph_GPIOB,ENABLE); //GPIOA时钟 GPIOB时钟
 
     //ADC_CON
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_40MHz;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4|GPIO_Pin_5|GPIO_Pin_3;
+    GPIO_InitStructure.GPIO_Pin = ADS869x_MOSI_GPIO|ADS869x_RST_GPIO|ADS869x_CS_GPIO;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    GPIO_Init(ADS869x_MOSI_GPIO_PORT, &GPIO_InitStructure);
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    GPIO_InitStructure.GPIO_Pin = ADS869x_SCLK_GPIO;
+    GPIO_Init(ADS869x_SCLK_GPIO_PORT, &GPIO_InitStructure);
     
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14|GPIO_Pin_15|GPIO_Pin_13;
+    GPIO_InitStructure.GPIO_Pin = ADS869x_MISO_GPIO;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;  //输入
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;  //输入
-    GPIO_Init(GPIOB, &GPIO_InitStructure);	  //初始化GPIOD3,6
+    GPIO_Init(ADS869x_MISO_GPIO_PORT, &GPIO_InitStructure);	  //初始化GPIOD3,6
+
+
+    GPIO_InitStructure.GPIO_Pin = ADS869x_DO1_GPIO|ADS869x_RVS_GPIO;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;  //输入
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;  //输入
+    GPIO_Init(ADS869x_DO1_GPIO_PORT, &GPIO_InitStructure);   //
 
     ADS869x_RST_Clr();
     delay_ms(10);
@@ -176,15 +186,12 @@ void ADS869x_DeInit(void)
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_40MHz;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4|GPIO_Pin_5|GPIO_Pin_3;
-    GPIO_InitStructure.GPIO_OType = GPIO_PuPd_UP;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4|GPIO_Pin_5|GPIO_Pin_3|GPIO_Pin_14|GPIO_Pin_15|GPIO_Pin_13;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
-    
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14|GPIO_Pin_15|GPIO_Pin_13;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);	  //初始化GPIOD3,6
+
 
 }
 
@@ -401,7 +408,7 @@ void Timinit(uint16_t speed)
     PowerControl_Init();
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
     TIM_TimeBaseStructure.TIM_Period = 63;
-    TIM_TimeBaseStructure.TIM_Prescaler = 160;
+    TIM_TimeBaseStructure.TIM_Prescaler = tim_prescaler;
     TIM_TimeBaseStructure.TIM_ClockDivision = 0;
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
 
@@ -449,33 +456,18 @@ void ADS869x_Start_Sample(void)
     buffer_cnt = 0;
     Timinit(GetADCSpeed());
     PowerControl_Init();
-    //while(1){}
     //    开始等待ADC数据采集完成
     for(send_pkt=0;;)  //为了不死在这个死循环里面
     {
-        delay_ms(1);  //延时1ms
+        delay_ms(1); //延时1
         adc_wait_overflow++;
         if(adc_wait_overflow>=1000*15)  //> 15S break;
             break;
 //      不停的获取adc的值
         result=QueueOut(GetFifo_Piot(),&sdat);
         if(result==QueueOperateOk){    //有新的数据
- 
-            //NvRam_Write_Data(sdat,recv_pkt*ADC_SIZE_16*2,ADC_SIZE_16*2);
             FM25VXX_Write(sdat,send_pkt*ADC_PACKET_SIZE,ADC_PACKET_SIZE);   
-            //FM25VXX_Read(_test_buffer,send_pkt*adc_packet_len,adc_packet_len);
-                        
-            //for(ii=0;ii<adc_packet_len;ii++)
-            //{
-            //    if(sdat[ii]!=_test_buffer[ii])
-            //        printf("error data !\n");
-            //}
-
             send_pkt++;
-#ifdef ADC_DEBUG_MODE
-        UART_DATA(sdat,ADC_SIZE_16*2);
-#endif
-           
             memfree(sdat);
             sdat=NULL; 
         }
@@ -483,14 +475,10 @@ void ADS869x_Start_Sample(void)
             break;
         }
     }
-#ifdef ADC_DEBUG_MODE
-    //while(1);
-#endif
-    ADS869x_DeInit();
-    //FM25VXX_DisInit();
     DeintTim();
+    ADS869x_DeInit();
     PowerControl_DeInit();
-    delay_ms(10);
+    //delay_ms(10);
 
 }	
 
@@ -535,12 +523,60 @@ uint8_t ADS869x_Start_Sample_little(uint16_t *adc1,uint16_t *adc2)
             break;
         }
     }
-    ADS869x_DeInit();
     DeintTim();
+    ADS869x_DeInit();
     delay_ms(10);
 
 }
 
+uint8_t ADS869x_Start_Sample_Debug(void)  
+{
+    uint8_t result,i;
+    uint16_t send_pkt=0,* adc_p;
+    uint16_t adc_wait_overflow=0;
+    uint16_t adc_last=0,adc_current=0;
+    uint32_t adc_sum=0;
+    uint8_t adc_debug_buffer[128];
+    adc_packet_len= 200;
+    collection_cnt=0;
+    ADS869x_Init();
+    FM25VXX_Init();
+    ignore_num=0;
+    buffer_cnt = 0;
+    Timinit(4000);
+    //开始等待ADC数据采集完成
+    for(send_pkt=0;send_pkt<adc_packet_len;)  //为了不死在这个死循环里面
+    {
+        delay_ms(1);
+        result=QueueOut(GetFifo_Piot(),&sdat);
+        if(result==QueueOperateOk){    //有新的数据
+            adc_p =(uint16_t *)sdat;
+            FM25VXX_Write(sdat,send_pkt*ADC_PACKET_SIZE,ADC_PACKET_SIZE);   
+            
+            memfree(sdat);
+            sdat=NULL;
+            send_pkt++;
+            printf("store ok%d\n",send_pkt);
+        }
+
+    }
+   // Led_Close();
+    for(send_pkt=0;send_pkt<adc_packet_len;send_pkt++){
+        
+        FM25VXX_Read(adc_debug_buffer,send_pkt*ADC_PACKET_SIZE,ADC_PACKET_SIZE);
+        
+        adc_p=(uint16_t *)adc_debug_buffer;
+       
+        for(i=0;i<(ADC_PACKET_SIZE>>1);i++)
+        {
+            printf("%d\n",*(adc_p++));
+        }   
+    }
+    DeintTim();
+    ADS869x_DeInit();
+    delay_ms(10);
+
+}
 
 void ADS869x_Stop_Sample(void)  
 {
@@ -555,20 +591,23 @@ static uint8_t *buffer;
 
 void TIM2_IRQHandler(void)
 {
+    
     uint16_t result;
+    Led_Open();
     if (TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET)
     {
+        
         TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
 
         if(collection_cnt>=adc_packet_len){
-                return;
+            Led_Close();
+            return;
         }
         adc_data = ADS869x_ReadADCData();
-        
         if(ignore_num<IGNORE_NUM)
         {
             ignore_num++;
-            
+            Led_Close();
             return;
         }
         adc_buffer[buffer_cnt++]=adc_data;
@@ -594,12 +633,14 @@ void TIM2_IRQHandler(void)
             }
             else
             {
-                
+                printf("adc error\n");
             }
             buffer_cnt=0;
         }
 
+
     }
+    Led_Close();
 }
 
 /************************************************************/

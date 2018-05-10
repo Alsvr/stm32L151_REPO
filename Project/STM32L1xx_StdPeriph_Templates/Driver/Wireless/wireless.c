@@ -988,7 +988,7 @@ uint8_t WireLess_Send_ADC_data(void)
             }
         else
             node_instru_packet.commend3 = 0x00;
-        //printf("send p is%d len is %d !\n",snd_pkt,adc_packet_len);
+        printf("send p is%d len is %d !\n",snd_pkt,adc_packet_len);
         for(i=0;i<sizeof(node_instru_packet);i++)
         {
             USART_SendData(USART2,(uint8_t)*(p++)); //当产生接收中断的时候,接收该数据，然后再从串口1把数据发送出去

@@ -3,20 +3,7 @@
 #include "stm32l1xx_gpio.h"
 #include "stm32l1xx_rcc.h"
 
-
-
-//定义全局变量
-extern unsigned char G_ACTIVE_FLAG; 
-
-// 0x01  G_ACTIVE_IN_H_FLAG    //定义输入电压过高标志位
-// 0x02  G_ACTIVE_IN_L_FLAG    //定义输入电压过低标志位
-// 0x03  G_ACTIVE_VDD_H_FLAG   //定义电源电压过高标志位
-// 0x04  G_ACTIVE_VDD_L_FLAG   //定义电源电压过低标志位
-
-extern unsigned long G_VAL; 
-
-extern unsigned long filter_buf[];
-extern unsigned char G_F_Flag;
+//#define ADC_DEBUG
 //PB15 DO0
 //PB14 DO1
 //PB13 RVS
@@ -24,23 +11,44 @@ extern unsigned char G_F_Flag;
 //PB4  RST
 //PB3  SDI
 //PA8  SCLK
-#define ADS869x_RVS      GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_13) 
-#define ADS869x_MISO     GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_15) 
 
-#define ADS869x_CS_Clr()   GPIO_ResetBits(GPIOB,GPIO_Pin_5)
-#define ADS869x_CS_Set()   GPIO_SetBits(GPIOB,GPIO_Pin_5)
+#define ADS869x_DO1_GPIO    GPIO_Pin_14
+#define ADS869x_DO1_GPIO_PORT    GPIOB
 
-//#define ADS869x_RS_Clr()   GPIO_ResetBits(GPIOB,GPIO_Pin_14)
-//#define ADS869x_RS_Set()   GPIO_SetBits(GPIOB,GPIO_Pin_14)
+#define ADS869x_RVS_GPIO    GPIO_Pin_13
+#define ADS869x_RVS_GPIO_PORT    GPIOB
 
-#define ADS869x_MOSI_Clr()  GPIO_ResetBits(GPIOB,GPIO_Pin_3)
-#define ADS869x_MOSI_Set()  GPIO_SetBits(GPIOB,GPIO_Pin_3)
+#define ADS869x_MISO_GPIO    GPIO_Pin_15
+#define ADS869x_MISO_GPIO_PORT    GPIOB
 
-#define ADS869x_SCLK_Clr()  GPIO_ResetBits(GPIOA,GPIO_Pin_8)
-#define ADS869x_SCLK_Set()  GPIO_SetBits(GPIOA,GPIO_Pin_8)
+#define ADS869x_CS_GPIO    GPIO_Pin_5
+#define ADS869x_CS_GPIO_PORT    GPIOB
 
-#define ADS869x_RST_Clr()  GPIO_ResetBits(GPIOB,GPIO_Pin_4)
-#define ADS869x_RST_Set()  GPIO_SetBits(GPIOB,GPIO_Pin_4)
+#define ADS869x_MOSI_GPIO    GPIO_Pin_3
+#define ADS869x_MOSI_GPIO_PORT    GPIOB
+
+#define ADS869x_SCLK_GPIO    GPIO_Pin_8
+#define ADS869x_SCLK_GPIO_PORT    GPIOA
+
+#define ADS869x_RST_GPIO    GPIO_Pin_4
+#define ADS869x_RST_GPIO_PORT    GPIOB
+
+
+
+#define ADS869x_RVS         GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_13) 
+#define ADS869x_MISO        (ADS869x_MISO_GPIO_PORT->IDR & ADS869x_MISO_GPIO) //GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_15) 
+
+#define ADS869x_CS_Clr()    ADS869x_CS_GPIO_PORT->BSRRH = ADS869x_CS_GPIO   //GPIO_ResetBits(GPIOB,GPIO_Pin_5)
+#define ADS869x_CS_Set()    ADS869x_CS_GPIO_PORT->BSRRL = ADS869x_CS_GPIO                        //GPIO_SetBits(GPIOB,GPIO_Pin_5)
+
+#define ADS869x_MOSI_Clr()  ADS869x_MOSI_GPIO_PORT->BSRRH = ADS869x_MOSI_GPIO //GPIO_ResetBits(GPIOB,GPIO_Pin_3)
+#define ADS869x_MOSI_Set()  ADS869x_MOSI_GPIO_PORT->BSRRL = ADS869x_MOSI_GPIO //GPIO_SetBits(GPIOB,GPIO_Pin_3)
+
+#define ADS869x_SCLK_Clr()  ADS869x_SCLK_GPIO_PORT->BSRRH = ADS869x_SCLK_GPIO //GPIO_ResetBits(GPIOA,GPIO_Pin_8)
+#define ADS869x_SCLK_Set()  ADS869x_SCLK_GPIO_PORT->BSRRL = ADS869x_SCLK_GPIO //GPIO_SetBits(GPIOA,GPIO_Pin_8)
+
+#define ADS869x_RST_Clr()   ADS869x_RST_GPIO_PORT->BSRRH = ADS869x_RST_GPIO  //GPIO_ResetBits(GPIOB,GPIO_Pin_4)
+#define ADS869x_RST_Set()   ADS869x_RST_GPIO_PORT->BSRRL = ADS869x_RST_GPIO //GPIO_SetBits(GPIOB,GPIO_Pin_4)
 
 #define ADC_PACKET_SIZE   128
 #define ADC_LEN_PACK      64
@@ -91,5 +99,6 @@ void ADS869x_GO_PD(void);																			//进入PD模式
 void ADS869x_PD_EXIT(void);																			//退出PD模式
 void ADS869x_Start_Sample(void);
 uint8_t ADS869x_Start_Sample_little(uint16_t *adc1,uint16_t *adc2);
+uint8_t ADS869x_Start_Sample_Debug(void);
 
 #endif

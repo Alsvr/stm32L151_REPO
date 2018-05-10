@@ -171,6 +171,8 @@ int main(void)
     uint8_t delay_i =0;
     uint8_t wifi_connect_flag =0;
     GlobalData_Para *globaldata_p;
+    
+    To_Exit_Stop();
     //void globaldata_p;
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
     Led_Init();
@@ -181,14 +183,15 @@ int main(void)
     FM25VXX_Init();
     globaldata_p=GetGlobalData();
     printf("Please enter AT Config AT+CONFIG\r\n");
-    
-    delay_ms(5000);
-    
-    
-    
+    delay_ms(4000);
     Init_CC3200(0xC0,0x1210,115200,80);
     Led_Close();
-    ADS869x_Init();
+#ifdef ADC_DEBUG
+    PowerControl_Init();
+    delay_ms(4000);
+    ADS869x_Start_Sample_Debug();
+    while(1){}
+#endif
     RTC_Config();
     auto_upload_adc_cnt = AUTO_UPLOAD_ADC_MAX_CNT;
 #if 1

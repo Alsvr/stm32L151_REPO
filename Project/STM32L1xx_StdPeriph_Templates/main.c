@@ -129,6 +129,7 @@ void TaskHandler(Node_Instru_Packet *node_instru_packet)
     if(node_instru_packet->commend1 ==SERVER_TO_NODE_CMD_START_ADC ||
         auto_upload_adc_cnt>=AUTO_UPLOAD_ADC_MAX_CNT)
     {
+            delay_ms(2000);
             ADS869x_Start_Sample();
             WireLess_Send_ADC_data();
             auto_upload_adc_cnt=0;
@@ -225,7 +226,7 @@ int main(void)
             //发送查询包到服务器
             if(WiFi_Send_Report(&node_instru_packet,temp,adc1,adc2,power_rate,Get_Node_NUM(),udp_index))
             {
-                delay_ms(2000);
+                
                 printf("re node_instru_packet.instru is   0x%d\n",node_instru_packet.instru);
                 printf("re node_instru_packet.commend1 is 0x%d\n",node_instru_packet.commend1);
                 printf("re node_instru_packet.commend2 is 0x%d\n",node_instru_packet.commend2);

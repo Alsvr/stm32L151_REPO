@@ -204,7 +204,7 @@ uint8_t WiFi_try_CMD_mode(void)
     __enable_irq(); 
     do
     {
-        delay_ms(100);
+        delay_ms(200);
         if(At_cmd_state == AT_CMD_WAIT_OK)
         {
             break;
@@ -215,6 +215,7 @@ uint8_t WiFi_try_CMD_mode(void)
 
         }
     }while(time_out_cnt < 10);
+    // if the wait a time more than 2S
     if(time_out_cnt >= 10)
     {
 
@@ -223,7 +224,7 @@ uint8_t WiFi_try_CMD_mode(void)
     }
     
     __disable_irq();
-    printf("start send 'a'\n");
+    printf("send a\n");
     Send_At_Cmd(AT_a,strlen(AT_a));    
     At_cmd_state = AT_CMD_WAIT_OK;
     memset(uart2_buffer, 0, sizeof(uart2_buffer));
@@ -259,9 +260,8 @@ uint8_t WiFi_Enter_CMD_mode(void)
 
     //433M_MO  --->PB8
 
-    //WiFi_Exit_CMD_mode();
-    delay_ms(20);
-    WireLess_check_wifi_ok();
+    //delay_ms(20);
+    //WireLess_check_wifi_ok();
     do
     {
         re=WiFi_try_CMD_mode();   //尝试进入cmd 模式 return 0 means fail
@@ -295,7 +295,7 @@ uint8_t WiFi_GetWifiStatus(void)
     time_out_cnt = 0;
     do
     {
-        delay_ms(200);
+        delay_ms(500);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
             break;
@@ -394,7 +394,7 @@ uint8_t WiFi_Exit_CMD_mode(void)
 uint8_t WiFi_EnterLowPowerMode(void)
 {
     
-   uint16_t time_out_cnt = 0;
+    uint16_t time_out_cnt = 0;
     
     WiFi_Enter_CMD_mode();
     
@@ -1023,7 +1023,7 @@ void USART2_IRQHandler(void)
                 if(da =='a')
                 {
                     At_cmd_state = AT_CMD_WAIT_OK;
-                    printf("AT_CMD_WAIT_OK\n");
+                    printf("a PASS\n");
                 }   
             }
             else if(At_cmd_state == AT_CMD_WAIT_OK) //wait cmd back '+OK'
@@ -1031,7 +1031,7 @@ void USART2_IRQHandler(void)
                 if(strcmp(AT_OK,(const char *)uart2_buffer) == 0)
                 {
                     At_cmd_state = AT_CMD_WAIT_OK_PASS;
-                    printf("AT_CMD_WAIT_OK_PASS\n");
+                    printf("OK PASS\n");
                 }
             }
             

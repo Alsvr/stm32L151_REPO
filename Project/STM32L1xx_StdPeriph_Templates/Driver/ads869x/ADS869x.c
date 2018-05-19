@@ -462,7 +462,10 @@ void ADS869x_Start_Sample(void)
         delay_ms(1); //延时1
         adc_wait_overflow++;
         if(adc_wait_overflow>=1000*15)  //> 15S break;
+        {
+            printf("adc time out:%d \n",adc_wait_overflow);
             break;
+        }
 //      不停的获取adc的值
         result=QueueOut(GetFifo_Piot(),&sdat);
         if(result==QueueOperateOk){    //有新的数据

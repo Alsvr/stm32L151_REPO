@@ -35,7 +35,7 @@
 
 
 
-#define ADS869x_RVS         GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_13) 
+#define ADS869x_RVS         (ADS869x_RVS_GPIO_PORT->IDR & ADS869x_RVS_GPIO)  // GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_13) 
 #define ADS869x_MISO        (ADS869x_MISO_GPIO_PORT->IDR & ADS869x_MISO_GPIO) //GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_15) 
 
 #define ADS869x_CS_Clr()    ADS869x_CS_GPIO_PORT->BSRRH = ADS869x_CS_GPIO   //GPIO_ResetBits(GPIOB,GPIO_Pin_5)
@@ -95,10 +95,12 @@ void ADS869x_Over_Judgment(void);                               //判断过压，欠压
 
 void ADS869x_GO_NAP(void);																			//进入睡眠模式
 void ADS869x_NAP_EXIT(void);																			//退出睡眠模式
-void ADS869x_GO_PD(void);																			//进入PD模式
+void ADS869x_GO_PD(void); 
+
 void ADS869x_PD_EXIT(void);																			//退出PD模式
 void ADS869x_Start_Sample(void);
 uint8_t ADS869x_Start_Sample_little(uint16_t *adc1,uint16_t *adc2);
 uint8_t ADS869x_Start_Sample_Debug(void);
+void ADS869x_SetRefMode(void);
 
 #endif

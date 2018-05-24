@@ -172,9 +172,11 @@ void ADS869x_Init(void)
     GPIO_Init(ADS869x_DO1_GPIO_PORT, &GPIO_InitStructure);   //
 
     ADS869x_RST_Clr();
-    delay_ms(10);
+    delay_ms(20);
     ADS869x_RST_Set();
     ADS869x_CS_Set();
+    ADS869x_SCLK_Clr();
+    ADS869x_SetRefMode();
 }
 
 void ADS869x_DeInit(void)
@@ -182,6 +184,8 @@ void ADS869x_DeInit(void)
     GPIO_InitTypeDef  GPIO_InitStructure;
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA|RCC_AHBPeriph_GPIOB, ENABLE);	//GPIOA时钟 GPIOB时钟
 
+
+    ADS869x_GO_PD();
     //ADC_CON
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
@@ -209,17 +213,19 @@ unsigned char ADS869x_ReadWrite(unsigned char dat)
 	for(i=0;i<8;i++)
 	{
 		ADS869x_SCLK_Clr(); //拉低时钟
-		//delay_us(20);
+		delay_us(2);
 		if(dat&0x80) 	
             ADS869x_MOSI_Set(); 
 		else			
             ADS869x_MOSI_Clr();
 		dat<<=1;
 		ADS869x_SCLK_Set();
-		//delay_us(10);
+		delay_us(2);
 		temp<<=1;
 		if(ADS869x_MISO) temp++;	
 	}
+    delay_us(2);
+    ADS869x_SCLK_Clr(); //拉低时钟
 	return temp;	
 }
 /*************************
@@ -245,13 +251,20 @@ void ADS869x_SendCMD(unsigned char cmd, uint8_t addr)
 **************************/
 unsigned long ADS869x_ReadREG(unsigned char addr)  
 {
-	unsigned long sum=0;
-	
-	ADS869x_SendCMD(ADS869x_READ_HWORD,addr+2); //先读高16位地址的值  #define ADS869x_READ_HWORD    0xC8
-//	delay_ms(10);
-	sum = ADS869x_ReadData(); //读高16位
-	ADS869x_SendCMD(ADS869x_READ_HWORD,addr);   //后读低16位地址的值  #define ADS869x_READ_HWORD    0xC8
-	sum |= (ADS869x_ReadData()>>16); 
+	uint16_t sum=0;
+    uint32_t time_out=0;
+	ADS869x_CS_Clr();										 //拉低片选，接受命令
+	while(ADS869x_RVS)
+    {
+        time_out++;
+        if(time_out>320000)
+            printf("time_out %d\n",time_out);
+    }
+	ADS869x_ReadWrite(((ADS869x_READ_HWORD<<8)+addr)>>8);    //发送写命令
+	ADS869x_ReadWrite(addr);
+	sum = ADS869x_ReadWrite(0)<<8;
+	sum += ADS869x_ReadWrite(0);
+	ADS869x_CS_Set();											//拉高片选，进入命令操作。	
 	
 	return sum;                          //返回数据
 }
@@ -264,12 +277,19 @@ unsigned long ADS869x_ReadREG(unsigned char addr)
 **************************/
 void ADS869x_WriteREG(unsigned char regaddr,unsigned short dat)
 {
-	unsigned char dat_H=0,dat_L=0;
-	dat_L = dat;
-	dat_H = dat>>8;
-
+	uint8_t dat_H=0,dat_L=0;
+    uint32_t time_out=0;
+	dat_L = dat&0xFF;
+	dat_H = (dat>>8)&0xFF;
+    
 	ADS869x_CS_Clr();										 //拉低片选，接受命令
-	ADS869x_ReadWrite(ADS869x_WRITE);    //发送写命令
+	while(ADS869x_RVS)
+    {
+        time_out++;
+        if(time_out>320000)
+            printf("time_out %d\n",time_out);
+    }
+	ADS869x_ReadWrite(((ADS869x_WRITE<<8)+regaddr)>>8);    //发送写命令
 	ADS869x_ReadWrite(regaddr);	
 	ADS869x_ReadWrite(dat_H);
 	ADS869x_ReadWrite(dat_L);
@@ -285,8 +305,14 @@ uint32_t ADS869x_ReadData(void)
 	unsigned char i=0;
 	unsigned long sum=0;
 	unsigned long r=0;
+    uint32_t time_out=0;
 	ADS869x_CS_Clr();
-	delay_us(25);            						//延时时间
+    while(ADS869x_RVS)
+    {
+        time_out++;
+        if(time_out>320000)
+            printf("time_out %d\n",time_out);
+    }
 	for(i=0;i<4;i++)                      //接收数据32位
 	{
 		sum = sum << 8;
@@ -296,6 +322,31 @@ uint32_t ADS869x_ReadData(void)
 	ADS869x_CS_Set();				
 	return sum&0xffff;                          //返回数据
 }
+
+uint32_t ADS869x_ReadData16(void)  
+{
+	unsigned char i=0;
+	unsigned long sum=0;
+	unsigned long r=0;
+    uint32_t time_out=0;
+	ADS869x_CS_Clr();
+    while(ADS869x_RVS)
+    {
+        time_out++;
+        if(time_out>320000)
+            printf("time_out %d\n",time_out);
+    }
+	for(i=0;i<4;i++)                      //接收数据32位
+	{
+		sum = sum << 8;
+		r = ADS869x_ReadWrite(0x00);    //接收数据
+		sum |= r;             
+	}
+	ADS869x_CS_Set();				
+	return sum&0xffff;                          //返回数据
+}
+
+
 /*************************
 程序功能：ADS869x_Over_Judgment FLAG判断
 参数：无
@@ -340,6 +391,7 @@ void ADS869x_GO_NAP(void)
 	ADS869x_WriteREG(0x04,0x6900); //向寄存器地址05H中写入数据69H解锁RST寄存器
 	ADS869x_WriteREG(0x04,0x0002); //向寄存器地址04H中写入数据69H解锁RST寄存器	
 //	ADS869x_ReadREG(0x04);	
+    
 }
 /*************************
 程序功能：ADS869x_NAP_EXIT退出睡眠模式
@@ -359,9 +411,11 @@ void ADS869x_NAP_EXIT(void)
 **************************/
 void ADS869x_GO_PD(void)  
 {
+    uint32_t reg_data=0;
 	ADS869x_WriteREG(0x04,0x6900); //向寄存器地址05H中写入数据69H解锁RST寄存器
 	ADS869x_WriteREG(0x04,0x0001); //向寄存器地址04H中写入数据69H解锁RST寄存器	
-//	ADS869x_ReadREG(0x04);	
+    reg_data = ADS869x_ReadREG(0x04);
+    printf("reg4 is %d\n",reg_data);
 }
 /*************************
 程序功能：ADS869x_PD_EXIT退出PD模式
@@ -370,10 +424,18 @@ void ADS869x_GO_PD(void)
 **************************/
 void ADS869x_PD_EXIT(void)  
 {
-	ADS869x_WriteREG(0x04,0x6900); //向寄存器地址05H中写入数据69H解锁RST寄存器
+	ADS869x_WriteREG(0x14,0x0000); //向寄存器地址05H中写入数据69H解锁RST寄存器
 	ADS869x_WriteREG(0x04,0x0000); //向寄存器地址04H中写入数据69H解锁RST寄存器	
 //	ADS869x_ReadREG(0x04);	
 }	
+
+void ADS869x_SetRefMode(void)  
+{
+    uint32_t reg_data=0;
+	ADS869x_WriteREG(0x14,0x000B); //向寄存器地址05H中写入数据69H解锁RST寄存器
+    reg_data = ADS869x_ReadREG(0x14);
+    printf("reg14 is %d\n",reg_data);
+}
 
 
 uint16_t ADS869x_ReadADCData(void)  
@@ -450,12 +512,12 @@ void ADS869x_Start_Sample(void)
     uint16_t adc_wait_overflow=0;
     adc_packet_len= Get_ADC_LEN();
     collection_cnt=0;
+    delay_ms(3000);
     ADS869x_Init();
     FM25VXX_Init();
     ignore_num=0;
     buffer_cnt = 0;
     Timinit(GetADCSpeed());
-    PowerControl_Init();
     //    开始等待ADC数据采集完成
     for(send_pkt=0;;)  //为了不死在这个死循环里面
     {
@@ -480,7 +542,7 @@ void ADS869x_Start_Sample(void)
     }
     DeintTim();
     ADS869x_DeInit();
-    PowerControl_DeInit();
+    //PowerControl_DeInit();
     //delay_ms(10);
 
 }	
@@ -540,30 +602,10 @@ uint8_t ADS869x_Start_Sample_Debug(void)
     uint16_t adc_last=0,adc_current=0;
     uint32_t adc_sum=0;
     uint8_t adc_debug_buffer[128];
-    adc_packet_len= 200;
+    adc_packet_len= Get_ADC_LEN();
     collection_cnt=0;
-    ADS869x_Init();
-    FM25VXX_Init();
-    ignore_num=0;
-    buffer_cnt = 0;
-    Timinit(4000);
-    //开始等待ADC数据采集完成
-    for(send_pkt=0;send_pkt<adc_packet_len;)  //为了不死在这个死循环里面
-    {
-        delay_ms(1);
-        result=QueueOut(GetFifo_Piot(),&sdat);
-        if(result==QueueOperateOk){    //有新的数据
-            adc_p =(uint16_t *)sdat;
-            FM25VXX_Write(sdat,send_pkt*ADC_PACKET_SIZE,ADC_PACKET_SIZE);   
-            
-            memfree(sdat);
-            sdat=NULL;
-            send_pkt++;
-            printf("store ok%d\n",send_pkt);
-        }
-
-    }
-   // Led_Close();
+    ADS869x_Start_Sample();
+    
     for(send_pkt=0;send_pkt<adc_packet_len;send_pkt++){
         
         FM25VXX_Read(adc_debug_buffer,send_pkt*ADC_PACKET_SIZE,ADC_PACKET_SIZE);
@@ -575,9 +617,6 @@ uint8_t ADS869x_Start_Sample_Debug(void)
             printf("%d\n",*(adc_p++));
         }   
     }
-    DeintTim();
-    ADS869x_DeInit();
-    delay_ms(10);
 
 }
 

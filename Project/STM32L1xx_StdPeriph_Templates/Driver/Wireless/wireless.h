@@ -61,10 +61,8 @@ void init_wireless(	uint8_t HEAD,
 					uint16_t ADD,
 					uint32_t baund,
 					uint8_t channel);
-void Init_CC3200(uint8_t HEAD,
-                        uint16_t ADD,
-                        uint32_t baund,
-                        uint8_t channel);
+void Init_CC3200(uint8_t first,
+                uint32_t baund);
 
 void Wireless_wakeup_mode(void);
 void Wireless_power_down(void);
@@ -81,6 +79,8 @@ uint8_t WiFi_Send_Report(Node_Instru_Packet *node_instru_packet,
                         uint16_t udp_index);
 
 uint8_t WiFi_EnterLowPowerMode(void);
+uint8_t WiFi_EnterPowerDownMode(void);
+
 void Reset_CC3200(void);
 
 #endif

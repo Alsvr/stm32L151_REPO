@@ -26,14 +26,16 @@ static uint8_t uart2_cnt = 0;
 uint8_t  WiFi_SetWifiConfig(GlobalData_Para *globaldata_p);
 void wire_less_uart_init(uint32_t buand)
 {
-	
 	USART_InitTypeDef USART_InitStructure;
 	GPIO_InitTypeDef GPIO_InitStructure;
 	NVIC_InitTypeDef NVIC_InitStructure;
 
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);	//使能USART1
 	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);	//GPIOA时钟
-
+	
+	GPIO_PinAFConfig(GPIOA, GPIO_PinSource2, GPIO_AF_USART2);
+	GPIO_PinAFConfig(GPIOA, GPIO_PinSource3, GPIO_AF_USART2);
+    
 	USART_DeInit(USART2);  //复位串口2
 
 	//USART2_TX   PA.2 PA.3
@@ -44,8 +46,7 @@ void wire_less_uart_init(uint32_t buand)
 	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;	
 	GPIO_Init(GPIOA, &GPIO_InitStructure); 
 
-	GPIO_PinAFConfig(GPIOA, GPIO_PinSource2, GPIO_AF_USART2);
-	GPIO_PinAFConfig(GPIOA, GPIO_PinSource3, GPIO_AF_USART2);
+
 
 
 	USART_InitStructure.USART_BaudRate = 115200;
@@ -56,17 +57,21 @@ void wire_less_uart_init(uint32_t buand)
 	USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
 	USART_Init(USART2,&USART_InitStructure);
 
-	USART_Cmd(USART2,ENABLE);
+	
 
 	USART_ITConfig(USART2,USART_IT_RXNE,ENABLE);//开启USART1的接收中断
 	//Usart1 NVIC 配置
 	NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;//串口1中断通道
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority=2;//抢占优先级3
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority=3;//抢占优先级3
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority =3;		//子优先级3
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;			//IRQ通道使能
 	NVIC_Init(&NVIC_InitStructure);	//根据指定的参数初始化VIC寄存器、
-
+	
+    USART_Cmd(USART2,ENABLE);
+    
 	USART_ClearFlag(USART2,USART_FLAG_TC); //清除发送完成标志位 
+
+    
 }	
 
 
@@ -86,7 +91,20 @@ void Wireless_Config_mode(void)
 
 void Wireless_power_down(void)
 {
-  GPIO_SetBits(GPIOB,POWER_GPIO);
+    GPIO_InitTypeDef GPIO_InitStructure;
+    GPIO_SetBits(GPIOB,POWER_GPIO);
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB|RCC_AHBPeriph_GPIOA, ENABLE);
+    /* Power config*/
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_400KHz;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8|GPIO_Pin_9|GPIO_Pin_10;
+    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1|GPIO_Pin_2|GPIO_Pin_3;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);  
+
 }
 
 void Wireless_power_on(void)
@@ -113,7 +131,7 @@ const char AT_WSTA_HEAD[] = {"AT+WSTA="};
 const char AT_WSTA_PASSWORD[] = {",12345678\r"};
 const char AT_WKMOD[] = {"AT+WKMOD=TRANS\r"};
 const char AT_WMODE[] = {"AT+WMODE=STA\r"};
-const char AT_SLPTYPE[] = {"AT+SLPTYPE=4,10\r"};
+const char AT_SLPTYPE[] = {"AT+SLPTYPE=2,10\r"};
 const char AT_SOCKA_S[] = {"AT+SOCKA=UDPC,192.168.8.1,8989\r"};
 const char AT_BACK_DISCONNECTION[] = {"+OK=DISCONNECTED"};
 
@@ -391,6 +409,53 @@ uint8_t WiFi_Exit_CMD_mode(void)
 }
 
 
+uint8_t WiFi_EnterPowerDownMode(void)
+{
+    
+    uint16_t time_out_cnt = 0;
+    
+    WiFi_Enter_CMD_mode();
+    
+    __disable_irq();
+    Send_At_Cmd(AT_MSLP,strlen(AT_MSLP));    
+    At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    __enable_irq(); 
+
+    time_out_cnt = 0;
+    do
+    {
+        delay_ms(1);
+        if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
+        {
+            break;
+        }
+        else
+        {
+            time_out_cnt++;
+        }
+    }while(time_out_cnt < WIFI_WAIT_AT_BACK_DELAY);
+    if(time_out_cnt >= WIFI_WAIT_AT_BACK_DELAY)
+    {
+        printf("WiFi_EnterLowPowerMode wait error %d\n",time_out_cnt);
+        return 0;
+    }
+    printf("AT_MSLP get %s wait %d ms\n",&uart2_buffer[2],time_out_cnt);
+
+    if(strstr((const char *)(&uart2_buffer[2]),AT_OK))
+    {
+        printf("WiFi_EnterLowPowerMode success\n");
+        WiFi_Exit_CMD_mode();
+        return 1;  
+    }
+    else
+    {
+        printf("WiFi_EnterLowPowerMode success fail\n");
+        return 0;
+    }
+    
+
+}
+
 uint8_t WiFi_EnterLowPowerMode(void)
 {
     
@@ -436,10 +501,52 @@ uint8_t WiFi_EnterLowPowerMode(void)
 
 }
 
-void Init_CC3200(uint8_t HEAD,
-                uint16_t ADD,
-                uint32_t baund,
-                uint8_t channel)
+uint8_t WiFi_EnterNoPowerMode(void)
+{
+    
+    uint16_t time_out_cnt = 0;
+    
+    WiFi_Enter_CMD_mode();
+    
+    __disable_irq();
+    Send_At_Cmd(AT_MSLP,strlen(AT_MSLP));    
+    At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    __enable_irq(); 
+
+    time_out_cnt = 0;
+    do
+    {
+        delay_ms(1);
+        if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
+        {
+            break;
+        }
+        else
+        {
+            time_out_cnt++;
+        }
+    }while(time_out_cnt < WIFI_WAIT_AT_BACK_DELAY);
+    if(time_out_cnt >= WIFI_WAIT_AT_BACK_DELAY)
+    {
+        printf("WiFi_EnterLowPowerMode wait error %d\n",time_out_cnt);
+        return 0;
+    }
+    printf("AT_MSLP get %s wait %d ms\n",&uart2_buffer[2],time_out_cnt);
+
+    if(strstr((const char *)(&uart2_buffer[2]),AT_OK))
+    {
+        printf("WiFi_EnterLowPowerMode success\n");
+        return 1;  
+    }
+    else
+    {
+        printf("WiFi_EnterLowPowerMode success fail\n");
+        return 0;
+    }
+
+}
+void Init_CC3200(uint8_t first,
+                uint32_t baund)
 {
     uint8_t i=0 ,re =0;
     uint8_t * at_p=0;
@@ -454,42 +561,17 @@ void Init_CC3200(uint8_t HEAD,
     GPIO_Init(GPIOB, &GPIO_InitStructure);
     GPIO_ResetBits(GPIOB,GPIO_Pin_10);
 
-    wire_less_uart_init(115200);
+    wire_less_uart_init(baund);
     delay_ms(10);
     //enter cmd 
-    WiFi_Enter_CMD_mode();
-    WiFi_SetWifiConfig(0);
-    //WiFi_WaitLinkOk();
-    //WiFi_WaitLinkOk();
+    if(first)
+    {
+        WiFi_Enter_CMD_mode();
+        WiFi_SetWifiConfig(0);
+        WiFi_Exit_CMD_mode();
+        
+    }
 
-    //WiFi_EnterLowPowerMode();
-    WiFi_Exit_CMD_mode();
-
-    //WireLess_Send_data("hello world!\n",100);
-    //while(1){}
-    //   printf("WiFi_Exit_CMD_mode success!\n");
-//    while(1){}
-//        
-//    /*enter cmd*/ 
-//    i=0;
-//    do
-//    {
-//        re=WiFi_Enter_CMD_mode();
-//        i++;
-//    
-//    }while((i<4)&&(re==0));
-//    if(i>=4)
-//        printf("Enter wifi cmd mode fail!\n");
-//    else
-//        printf("Enter wifi cmd mode pass!\n");
-
-//    
-//    Send_At_Cmd(AT_MSLP,strlen(AT_MSLP));
-
-    //delay_ms(1000);
-    //WireLess_Send_data("00000",5);
-    //delay_ms(10);delay_ms(4000);delay_ms(4000);
-    //WireLess_Send_data("AAAAAAAAS3333333333333333333333333333DSFDS",5000);
 }
 
 void init_wireless(uint8_t HEAD,
@@ -939,7 +1021,7 @@ uint8_t WiFi_Send_Report(Node_Instru_Packet *node_instru_packet,
     __enable_irq();
     printf("Send report to server\n");
     memset((void *)node_instru_packet,0,sizeof(Node_Instru_Packet));
-    for(i=0;i<3000;i++)   //wait 3S
+    for(i=0;i<6000;i++)   //wait 3S
     {
         delay_ms(1);
         if(wireless_rx_cnt>=sizeof(Node_Instru_Packet))
@@ -964,6 +1046,7 @@ uint8_t WireLess_Send_ADC_data(void)
 {
     uint16_t i = 0,snd_pkt,adc_packet_len;
     uint8_t *p=0;
+    uint16_t *P_int16=0;
     Node_Instru_Packet node_instru_packet;
     adc_packet_len= Get_ADC_LEN();
     p=(uint8_t *)&node_instru_packet;
@@ -972,34 +1055,46 @@ uint8_t WireLess_Send_ADC_data(void)
     node_instru_packet.header1 = NODE_INSTRU_HEAD1;
     node_instru_packet.header2 = NODE_INSTRU_HEAD2;
     node_instru_packet.node_addr =Get_Node_NUM();
-    node_instru_packet.commend1=0;
-    node_instru_packet.commend2=0;
+    node_instru_packet.commend1 = 0x00;
+    node_instru_packet.commend2 = 0x00;
+    node_instru_packet.commend3 = 0x00;
     node_instru_packet.tail1=NODE_INSTRU_TAIL1;
     node_instru_packet.tail2=NODE_INSTRU_TAIL2;
+    P_int16 =(uint16_t *)node_instru_packet.data;
+    FM25VXX_Init();
     for(snd_pkt=0;snd_pkt<adc_packet_len;snd_pkt++){
-        
+       
         FM25VXX_Read(node_instru_packet.data,snd_pkt*ADC_PACKET_SIZE,ADC_PACKET_SIZE);
         p=(uint8_t *)&node_instru_packet;
+        P_int16 =(uint16_t *)node_instru_packet.data;
         node_instru_packet.commend1=(snd_pkt>>8)&0xff;  
         node_instru_packet.commend2=(snd_pkt)&0xff; 
 
         if(snd_pkt==(adc_packet_len-1)){
                 node_instru_packet.commend3 = 0x01;
             }
-        else
-            node_instru_packet.commend3 = 0x00;
+
         //printf("send p is%d len is %d !\n",snd_pkt,adc_packet_len);
         for(i=0;i<sizeof(node_instru_packet);i++)
         {
             USART_SendData(USART2,(uint8_t)*(p++)); //当产生接收中断的时候,接收该数据，然后再从串口1把数据发送出去
             while(USART_GetFlagStatus(USART2,USART_FLAG_TXE)==RESET);//等待发送数据完毕);
         }
-		delay_ms(10);   //  >5ms  make sure packet div
+#if 0
+        for(i=0;i<(ADC_PACKET_SIZE>>1);i++)
+        {
+            printf("%d\n",*(P_int16++));
+        }
+#else
+         delay_ms(10);   //  >5ms  make sure packet div
+#endif
+
 
         //第一次传输  传输4S 若发送失败则放弃
 
          
     }
+    FM25VXX_DisInit();
     printf("send data to server finish!\n");
     return 0;
    

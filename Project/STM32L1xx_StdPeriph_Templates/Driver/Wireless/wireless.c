@@ -92,13 +92,13 @@ void Wireless_Config_mode(void)
 void Wireless_power_down(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
-    GPIO_SetBits(GPIOB,POWER_GPIO);
+    //GPIO_SetBits(GPIOB,POWER_GPIO);
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB|RCC_AHBPeriph_GPIOA, ENABLE);
     /* Power config*/
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_400KHz;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8|GPIO_Pin_9|GPIO_Pin_10;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8|GPIO_Pin_9;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
@@ -131,7 +131,7 @@ const char AT_WSTA_HEAD[] = {"AT+WSTA="};
 const char AT_WSTA_PASSWORD[] = {",12345678\r"};
 const char AT_WKMOD[] = {"AT+WKMOD=TRANS\r"};
 const char AT_WMODE[] = {"AT+WMODE=STA\r"};
-const char AT_SLPTYPE[] = {"AT+SLPTYPE=2,10\r"};
+const char AT_SLPTYPE[] = {"AT+SLPTYPE=4,10\r"};
 const char AT_SOCKA_S[] = {"AT+SOCKA=UDPC,192.168.8.1,8989\r"};
 const char AT_BACK_DISCONNECTION[] = {"+OK=DISCONNECTED"};
 
@@ -178,18 +178,12 @@ void Reset_CC3200(void)
 void Send_At_Cmd(const char * p,uint8_t num)
 {
     uint8_t i = 0;
-    //uint8_t num = strlen(p);
-    //USART_SendData(USART1,'-');
-    //while(USART_GetFlagStatus(USART1,USART_FLAG_TXE)==RESET);//等待发送数据完毕);
-    uart2_cnt = 0;
     memset(uart2_buffer,0,sizeof(uart2_buffer));
+    uart2_cnt = 0;
     for(i=0;i<num;i++)
     {
         USART_SendData(USART2,(uint8_t)*(p++)); //当产生接收中断的时候,接收该数据，然后再从串口1把数据发送出去
-        while(USART_GetFlagStatus(USART2,USART_FLAG_TXE)==RESET);//等待发送数据完毕);
-
-        // USART_SendData(USART1,(uint8_t)*(p++));
-        //while(USART_GetFlagStatus(USART1,USART_FLAG_TXE)==RESET);//等待发送数据完毕);		
+        while(USART_GetFlagStatus(USART2,USART_FLAG_TXE)==RESET);//等待发送数据完毕);	
     }
 }
 /*
@@ -215,14 +209,14 @@ uint8_t WireLess_check_wifi_ok()
 uint8_t WiFi_try_CMD_mode(void)
 {
     uint8_t time_out_cnt = 0;
-
+    delay_ms(20);  //避开打包间隔
     __disable_irq();
-    Send_At_Cmd(AT_CONFIG_START,strlen(AT_CONFIG_START));    
     At_cmd_state = AT_CMD_WAIT_A;
     __enable_irq(); 
+    Send_At_Cmd(AT_CONFIG_START,strlen(AT_CONFIG_START));
     do
     {
-        delay_ms(200);
+        delay_ms(10);
         if(At_cmd_state == AT_CMD_WAIT_OK)
         {
             break;
@@ -232,25 +226,26 @@ uint8_t WiFi_try_CMD_mode(void)
             time_out_cnt++;
 
         }
-    }while(time_out_cnt < 10);
-    // if the wait a time more than 2S
-    if(time_out_cnt >= 10)
+    }while(time_out_cnt < 200);
+    // if the wait a time more than 1S
+    if(time_out_cnt >= 200)
     {
 
-        printf("wait 'a' fail\n");
+        printf("wait 'a' fail\n");   //等待 a 返回失败
         return 0;
     }
-    
+    printf("wait 'a' success, then send a\n");
     __disable_irq();
-    printf("send a\n");
-    Send_At_Cmd(AT_a,strlen(AT_a));    
     At_cmd_state = AT_CMD_WAIT_OK;
-    memset(uart2_buffer, 0, sizeof(uart2_buffer));
     __enable_irq(); 
+    Send_At_Cmd(AT_a,strlen(AT_a));    
+
+    memset(uart2_buffer, 0, sizeof(uart2_buffer));
+    
     time_out_cnt = 0;
     do
     {
-        delay_ms(1);
+        delay_ms(100);
         if(At_cmd_state == AT_CMD_WAIT_OK_PASS)
         {
             At_cmd_state = AT_CMD_WAIT_OK_PASS_FINISH;
@@ -261,10 +256,10 @@ uint8_t WiFi_try_CMD_mode(void)
         {
             time_out_cnt++;
         }
-    }while(time_out_cnt < 10);
-    if(time_out_cnt >= 10)
+    }while(time_out_cnt < 20);
+    if(time_out_cnt >= 20)
     {
-        printf("wait + OK fail\n");
+        printf("wait +OK fail\n");
         return 0;
     }
     return 1;
@@ -275,18 +270,13 @@ uint8_t WiFi_try_CMD_mode(void)
 uint8_t WiFi_Enter_CMD_mode(void)
 {
     uint16_t i=0,re;
-
-    //433M_MO  --->PB8
-
-    //delay_ms(20);
-    //WireLess_check_wifi_ok();
     do
     {
         re=WiFi_try_CMD_mode();   //尝试进入cmd 模式 return 0 means fail
         i++;
     
-    }while((i<14)&&(re==0));
-    if(i>=14)
+    }while((i<8)&&(re==0));
+    if(i>=8)
     {
         printf("Enter wifi cmd mode fail!\n");
         return 0;
@@ -306,8 +296,9 @@ uint8_t WiFi_GetWifiStatus(void)
     uint16_t time_out_cnt = 0;
 
     __disable_irq();
+        At_cmd_state = AT_CMD_WAIT_AT_BACK;
     Send_At_Cmd(AT_WSLK,strlen(AT_WSLK));    
-    At_cmd_state = AT_CMD_WAIT_AT_BACK;
+
     __enable_irq(); 
 
     time_out_cnt = 0;
@@ -370,9 +361,9 @@ uint8_t WiFi_Exit_CMD_mode(void)
 {
     uint16_t time_out_cnt = 0;
     __disable_irq();
-    Send_At_Cmd(AT_ENTM,strlen(AT_ENTM));    
-    At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    At_cmd_state = AT_CMD_WAIT_AT_BACK;  
     __enable_irq(); 
+    Send_At_Cmd(AT_ENTM,strlen(AT_ENTM));
 
     time_out_cnt = 0;
     do
@@ -415,10 +406,9 @@ uint8_t WiFi_EnterPowerDownMode(void)
     uint16_t time_out_cnt = 0;
     
     WiFi_Enter_CMD_mode();
-    
     __disable_irq();
-    Send_At_Cmd(AT_MSLP,strlen(AT_MSLP));    
     At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    Send_At_Cmd(AT_MSLP,strlen(AT_MSLP));    
     __enable_irq(); 
 
     time_out_cnt = 0;
@@ -436,21 +426,20 @@ uint8_t WiFi_EnterPowerDownMode(void)
     }while(time_out_cnt < WIFI_WAIT_AT_BACK_DELAY);
     if(time_out_cnt >= WIFI_WAIT_AT_BACK_DELAY)
     {
-        printf("WiFi_EnterLowPowerMode wait error %d\n",time_out_cnt);
+        printf("WiFi_EnterLowPowerMode 4 wait error %d\n",time_out_cnt);
         return 0;
     }
     printf("AT_MSLP get %s wait %d ms\n",&uart2_buffer[2],time_out_cnt);
 
     if(strstr((const char *)(&uart2_buffer[2]),AT_OK))
     {
-        printf("WiFi_EnterLowPowerMode success\n");
-        WiFi_Exit_CMD_mode();
+        printf("WiFi_EnterLowPowerMode 4 success\n");
         return 1;  
     }
     else
     {
-        printf("WiFi_EnterLowPowerMode success fail\n");
-        return 0;
+        printf("WiFi_EnterLowPowerMode 4 success fail\n");
+        return 0; 
     }
     
 
@@ -464,8 +453,8 @@ uint8_t WiFi_EnterLowPowerMode(void)
     WiFi_Enter_CMD_mode();
     
     __disable_irq();
-    Send_At_Cmd(AT_MSLP,strlen(AT_MSLP));    
     At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    Send_At_Cmd(AT_MSLP,strlen(AT_MSLP));    
     __enable_irq(); 
 
     time_out_cnt = 0;
@@ -509,8 +498,8 @@ uint8_t WiFi_EnterNoPowerMode(void)
     WiFi_Enter_CMD_mode();
     
     __disable_irq();
-    Send_At_Cmd(AT_MSLP,strlen(AT_MSLP));    
     At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    Send_At_Cmd(AT_MSLP,strlen(AT_MSLP));    
     __enable_irq(); 
 
     time_out_cnt = 0;
@@ -551,6 +540,7 @@ void Init_CC3200(uint8_t first,
     uint8_t i=0 ,re =0;
     uint8_t * at_p=0;
     GPIO_InitTypeDef GPIO_InitStructure;
+    wire_less_uart_init(baund);
 
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
     /* Power config*/
@@ -559,19 +549,24 @@ void Init_CC3200(uint8_t first,
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
-    GPIO_ResetBits(GPIOB,GPIO_Pin_10);
-
-    wire_less_uart_init(baund);
-    delay_ms(10);
+    Wireless_power_on();
     //enter cmd 
     if(first)
     {
         WiFi_Enter_CMD_mode();
         WiFi_SetWifiConfig(0);
         WiFi_Exit_CMD_mode();
+        Reset_CC3200();
+        delay_ms(1000);
+    }
+    else
+    {
+        Reset_CC3200();
+        delay_ms(1000);
         
     }
-
+    //delay_ms(1000);
+    //delay_ms(1000);
 }
 
 void init_wireless(uint8_t HEAD,
@@ -664,8 +659,9 @@ uint8_t  WiFi_SetSOCKA(char *str)
     uint16_t time_out_cnt = 0;
 
     __disable_irq();
-    Send_At_Cmd(AT_SOCKA_S,strlen(AT_SOCKA_S));    
+    
     At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    Send_At_Cmd(AT_SOCKA_S,strlen(AT_SOCKA_S));    
     __enable_irq(); 
 
     time_out_cnt = 0;
@@ -705,8 +701,9 @@ uint8_t  WiFi_SetWKMOD(char *str)
     uint16_t time_out_cnt = 0;
 
     __disable_irq();
+        At_cmd_state = AT_CMD_WAIT_AT_BACK;
     Send_At_Cmd(AT_WKMOD,strlen(AT_WKMOD));    
-    At_cmd_state = AT_CMD_WAIT_AT_BACK;
+
     __enable_irq(); 
 
     time_out_cnt = 0;
@@ -749,8 +746,8 @@ uint8_t  WiFi_SetWSTA(char *str)
     strcat (wsta_str,AT_WSTA_PASSWORD);
     printf("wsta string is %s\n",wsta_str);
     __disable_irq();
-    Send_At_Cmd(wsta_str,strlen(wsta_str));    
     At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    Send_At_Cmd(wsta_str,strlen(wsta_str));    
     __enable_irq(); 
 
     time_out_cnt = 0;
@@ -789,8 +786,9 @@ uint8_t  WiFi_SetWMODE(char *str)
     uint16_t time_out_cnt = 0;
 
     __disable_irq();
+        At_cmd_state = AT_CMD_WAIT_AT_BACK;
     Send_At_Cmd(AT_WMODE,strlen(AT_WMODE));    
-    At_cmd_state = AT_CMD_WAIT_AT_BACK;
+
     __enable_irq(); 
 
     time_out_cnt = 0;
@@ -829,8 +827,8 @@ uint8_t  WiFi_SetSLPTYPE(char *str)
     uint16_t time_out_cnt = 0;
 
     __disable_irq();
-    Send_At_Cmd(AT_SLPTYPE,strlen(AT_SLPTYPE));    
     At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    Send_At_Cmd(AT_SLPTYPE,strlen(AT_SLPTYPE));    
     __enable_irq(); 
 
     time_out_cnt = 0;
@@ -870,8 +868,9 @@ uint8_t  WiFi_SetWANN(char *str)
     uint16_t time_out_cnt = 0;
 
     __disable_irq();
+        At_cmd_state = AT_CMD_WAIT_AT_BACK;
     Send_At_Cmd(AT_WANN,strlen(AT_WANN));    
-    At_cmd_state = AT_CMD_WAIT_AT_BACK;
+
     __enable_irq(); 
 
     time_out_cnt = 0;
@@ -1008,16 +1007,15 @@ uint8_t WiFi_Send_Report(Node_Instru_Packet *node_instru_packet,
     node_instru_packet->data[9] =(udp_index>>8)&0xff;
     
     p=(uint8_t *)node_instru_packet;
-     
+    __disable_irq();
+    At_cmd_state=AT_DATA_WAIT_DATA;
+    wireless_rx_cnt=0;
     for(i=0;i<sizeof(Node_Instru_Packet);i++)
     {
         USART_SendData(USART2,(uint8_t)*(p++)); //当产生接收中断的时候,接收该数据，然后再从串口1把数据发送出去
         while(USART_GetFlagStatus(USART2,USART_FLAG_TXE)==RESET);//等待发送数据完毕);
     }
-    
-    __disable_irq();
-    At_cmd_state=AT_DATA_WAIT_DATA;
-    wireless_rx_cnt=0;
+ 
     __enable_irq();
     printf("Send report to server\n");
     memset((void *)node_instru_packet,0,sizeof(Node_Instru_Packet));
@@ -1115,10 +1113,9 @@ void USART2_IRQHandler(void)
                 uart2_cnt = 0;
             if(At_cmd_state == AT_CMD_WAIT_A)  //wait cmd back ‘a'
             {
-                if(da =='a')
+                if(da == 'a')
                 {
                     At_cmd_state = AT_CMD_WAIT_OK;
-                    printf("a PASS\n");
                 }   
             }
             else if(At_cmd_state == AT_CMD_WAIT_OK) //wait cmd back '+OK'
@@ -1126,7 +1123,7 @@ void USART2_IRQHandler(void)
                 if(strcmp(AT_OK,(const char *)uart2_buffer) == 0)
                 {
                     At_cmd_state = AT_CMD_WAIT_OK_PASS;
-                    printf("OK PASS\n");
+                    //printf("OK PASS\n");
                 }
             }
             
@@ -1141,7 +1138,7 @@ void USART2_IRQHandler(void)
         }
         else
         {
-            if(AT_DATA_WAIT_DATA ==At_cmd_state)
+            if(AT_DATA_WAIT_DATA == At_cmd_state)
             {
                wireless_rx_buff[wireless_rx_cnt++]=da;
                if(wireless_rx_cnt>=wireless_rx_buff_size)

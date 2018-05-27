@@ -129,8 +129,13 @@ void TaskHandler(Node_Instru_Packet *node_instru_packet)
     if(node_instru_packet->commend1 ==SERVER_TO_NODE_CMD_START_ADC ||
         auto_upload_adc_cnt>=AUTO_UPLOAD_ADC_MAX_CNT)
     {
-            
+            //Reset_CC3200();
             ADS869x_Start_Sample();
+            
+            //delay_ms(2000);
+            //delay_ms(2000);
+            //delay_ms(2000);
+            //delay_ms(2000);
             WireLess_Send_ADC_data();
             auto_upload_adc_cnt=0;
     }
@@ -156,7 +161,7 @@ uint8_t ConnetTheWifiServer()
     }
     
     WiFi_Exit_CMD_mode();
-    //WiFi_Exit_CMD_mode();
+    WiFi_Exit_CMD_mode();
     //联网结束   
     return ret;
 }
@@ -186,11 +191,7 @@ int main(void)
     FM25VXX_Init();
     globaldata_p=GetGlobalData();
     printf("Please enter AT Config AT+CONFIG\r\n");
-//#ifndef ADC_DEBUG 
-    Reset_CC3200();
-    delay_ms(4000);
-    Init_CC3200(1,115200);
-//#endif
+    delay_ms(2000);
     Led_Close();
 #ifdef ADC_DEBUG
     
@@ -202,9 +203,12 @@ int main(void)
 #if 1
     while(1)
     {
-        //Wireless_power_on();
-        Init_CC3200(0,115200);
-        wifi_connect_flag=0;
+        
+        printf("wake up \n");
+        Led_Init();
+        Init_CC3200(first_init_wifi,115200); 
+        first_init_wifi=0;
+        wifi_connect_flag=0;    
         bsp_InitDS18B20();
         if(!DS18B20_ReadTempStep1())
                 printf("temp step1 fail!\n");
@@ -212,26 +216,28 @@ int main(void)
         udp_index++;
         
         wifi_connect_flag=ConnetTheWifiServer();
+        //Wireless_power_down();
         if(wifi_connect_flag)
         {
-            To_Exit_Stop(); 
-            //delay_ms(100);
-            PowerControl_Init();  //open vibrating sensor power
+            //To_Exit_Stop(); 
+            //delay_ms(500);          
+              //open vibrating sensor power
             //delay for temperature and  vibrating sensor power stable
             temp =DS18B20_ReadTempStep2();  //读取温度
             printf("temp is %f ^C\n",temp * 0.0625);
             bsp_DeInitDS18B20();//temperature read end
 
             //read power
+            PowerControl_Init();
             power_rate=ADC_Config();
             
             //read vibrating sensor temp ;
             ADS869x_Start_Sample_little(&adc1,&adc2);
-            
+            //Init_CC3200(0,115200);
             //发送查询包到服务器
             if(WiFi_Send_Report(&node_instru_packet,temp,adc1,adc2,power_rate,Get_Node_NUM(),udp_index))
             {
-                WiFi_EnterPowerDownMode();
+                //WiFi_EnterPowerDownMode();
                 printf("re node_instru_packet.instru is   0x%d\n",node_instru_packet.instru);
                 printf("re node_instru_packet.commend1 is 0x%d\n",node_instru_packet.commend1);
                 printf("re node_instru_packet.commend2 is 0x%d\n",node_instru_packet.commend2);
@@ -252,17 +258,20 @@ int main(void)
             printf("WIFI status is fail\n");
             
         }
-        PowerControl_DeInit();
-        WiFi_EnterPowerDownMode();
+        PowerControl_DeInit(); //关闭加速度模块
+        WiFi_EnterPowerDownMode(); 
         Wireless_power_down();
         printf("Main Go to Sleep\n");
 #if 1
          //进入休眠模式 30s
          Enter_Stop_Mode(); //30S
-         Enter_Stop_Mode(); //30S
-         Enter_Stop_Mode(); //30S
-         Enter_Stop_Mode(); //30S
          To_Exit_Stop(); 
+//         Enter_Stop_Mode(); //30S
+//         To_Exit_Stop(); 
+//         Enter_Stop_Mode(); //30S
+//         To_Exit_Stop(); 
+//         Enter_Stop_Mode(); //30S
+//         To_Exit_Stop(); 
 #else
          for(delay_i=0;delay_i<20;delay_i++)
          {

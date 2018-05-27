@@ -512,7 +512,8 @@ void ADS869x_Start_Sample(void)
     uint16_t adc_wait_overflow=0;
     adc_packet_len= Get_ADC_LEN();
     collection_cnt=0;
-    delay_ms(3000);
+    delay_ms(4000);
+    delay_ms(1000);
     ADS869x_Init();
     FM25VXX_Init();
     ignore_num=0;

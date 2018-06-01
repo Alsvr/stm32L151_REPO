@@ -3,7 +3,7 @@
 #include "stm32l1xx_gpio.h"
 #include "stm32l1xx_rcc.h"
 
-//#define ADC_DEBUG
+#define ADC_DEBUG
 //PB15 DO0
 //PB14 DO1
 //PB13 RVS
@@ -99,7 +99,7 @@ void ADS869x_GO_PD(void);
 
 void ADS869x_PD_EXIT(void);																			//ÍË³öPDÄ£Ê½
 void ADS869x_Start_Sample(void);
-uint8_t ADS869x_Start_Sample_little(uint16_t *adc1,uint16_t *adc2);
+uint8_t ADS869x_Start_Sample_little(uint16_t *adc1);
 uint8_t ADS869x_Start_Sample_Debug(void);
 void ADS869x_SetRefMode(void);
 

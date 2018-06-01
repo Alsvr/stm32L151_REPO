@@ -200,13 +200,12 @@ int main(void)
 #endif
     RTC_Config();
     auto_upload_adc_cnt = AUTO_UPLOAD_ADC_MAX_CNT;
-#if 1
     while(1)
     {
         
         printf("wake up \n");
         Led_Init();
-        Init_CC3200(first_init_wifi,115200); 
+        Init_CC3200(first_init_wifi,115200);  //
         first_init_wifi=0;
         wifi_connect_flag=0;    
         bsp_InitDS18B20();
@@ -219,21 +218,15 @@ int main(void)
         //Wireless_power_down();
         if(wifi_connect_flag)
         {
-            //To_Exit_Stop(); 
-            //delay_ms(500);          
-              //open vibrating sensor power
-            //delay for temperature and  vibrating sensor power stable
+            PowerControl_Init();
+            delay_ms(5);          
             temp =DS18B20_ReadTempStep2();  //读取温度
             printf("temp is %f ^C\n",temp * 0.0625);
             bsp_DeInitDS18B20();//temperature read end
-
             //read power
-            PowerControl_Init();
             power_rate=ADC_Config();
-            
             //read vibrating sensor temp ;
-            ADS869x_Start_Sample_little(&adc1,&adc2);
-            //Init_CC3200(0,115200);
+            ADS869x_Start_Sample_little(&adc1);
             //发送查询包到服务器
             if(WiFi_Send_Report(&node_instru_packet,temp,adc1,adc2,power_rate,Get_Node_NUM(),udp_index))
             {
@@ -266,12 +259,12 @@ int main(void)
          //进入休眠模式 30s
          Enter_Stop_Mode(); //30S
          To_Exit_Stop(); 
-//         Enter_Stop_Mode(); //30S
-//         To_Exit_Stop(); 
-//         Enter_Stop_Mode(); //30S
-//         To_Exit_Stop(); 
-//         Enter_Stop_Mode(); //30S
-//         To_Exit_Stop(); 
+         Enter_Stop_Mode(); //30S
+         To_Exit_Stop(); 
+         Enter_Stop_Mode(); //30S
+         To_Exit_Stop(); 
+         Enter_Stop_Mode(); //30S
+         To_Exit_Stop(); 
 #else
          for(delay_i=0;delay_i<20;delay_i++)
          {
@@ -285,38 +278,6 @@ int main(void)
 
         }
 
-
-
-         
-
-	
-#else
-	while (1)
-	{
-		//Led_Init();
-		//delay_init(32);
-		//Led_Open();
-		//delay_ms(10);
-		//Led_Close();
-		//Wireless_power_down();
-        Enter_Stop_Mode();
-		Enter_Stop_Mode();
-        Enter_Stop_Mode();
-        Enter_Stop_Mode();
-		To_Exit_Stop();
-		//Wireless_power_on();
-		delay_ms(1000);
-//		delay_ms(30000);	
-//		delay_ms(30000);
-//		delay_ms(30000);
-//		delay_ms(30000);
-//		delay_ms(30000);
-//		delay_ms(30000);
-//		delay_ms(30000);
-//		delay_ms(30000);
-//		delay_ms(30000);
-	}
-#endif
 }
 
 

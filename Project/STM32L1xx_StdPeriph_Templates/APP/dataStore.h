@@ -4,6 +4,26 @@
 #include "stm32l1xx.h" 
 #include "stdio.h" 
 #include "stdint.h" 
+
+#define BIT_0                 ((uint16_t)0x0001)  /*!< Pin 0 selected */
+#define BIT_1                 ((uint16_t)0x0002)  /*!< Pin 1 selected */
+#define BIT_2                 ((uint16_t)0x0004)  /*!< Pin 2 selected */
+#define BIT_3                 ((uint16_t)0x0008)  /*!< Pin 3 selected */
+#define BIT_4                 ((uint16_t)0x0010)  /*!< Pin 4 selected */
+#define BIT_5                 ((uint16_t)0x0020)  /*!< Pin 5 selected */
+#define BIT_6                 ((uint16_t)0x0040)  /*!< Pin 6 selected */
+#define BIT_7                 ((uint16_t)0x0080)  /*!< Pin 7 selected */
+#define BIT_8                 ((uint16_t)0x0100)  /*!< Pin 8 selected */
+#define BIT_9                 ((uint16_t)0x0200)  /*!< Pin 9 selected */
+#define BIT_10                ((uint16_t)0x0400)  /*!< Pin 10 selected */
+#define BIT_11                ((uint16_t)0x0800)  /*!< Pin 11 selected */
+#define BIT_12                ((uint16_t)0x1000)  /*!< Pin 12 selected */
+#define BIT_13                ((uint16_t)0x2000)  /*!< Pin 13 selected */
+#define BIT_14                ((uint16_t)0x4000)  /*!< Pin 14 selected */
+#define BIT_15                ((uint16_t)0x8000)  /*!< Pin 15 selected */
+
+
+
 #define  ADC_OFFSET_DEFAULT 0
 #define  ADC_LEN_DEFAULT    64  //128
 #define  ADC_SPEED_DEFAULT  1000  //K

@@ -52,6 +52,8 @@
 //doneload cmd
 
 #define AUTO_UPLOAD_ADC_MAX_CNT 30 
+#define REALTIME_DATA_SIE       32 
+#define UE_UPDATE_DATA_30S_NUM       20 
 
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
@@ -61,8 +63,31 @@ typedef struct
 
 } ServerCmd_TypeDef;
 
+typedef struct
+{
+    uint16_t acceleration_data[REALTIME_DATA_SIE];
+    uint16_t temperature_data[REALTIME_DATA_SIE];
 
-static uint8_t auto_upload_adc_cnt=0;
+} RealData_TypeDef;
+
+
+static uint8_t auto_upload_adc_cnt= 0;
+static uint16_t adc_threshlod = 0;  
+static uint16_t temperature_threshold = 0;  
+
+static uint16_t adc1,adc2,power_rate;
+static uint16_t udp_index=0;
+
+uint8_t Rx[1024];
+short temp;
+uint32_t ads8699_reg=0;
+Node_Instru_Packet node_instru_packet;
+
+
+static RealData_TypeDef realtime_data;  
+static uint8_t          realtime_data_cnt=0;
+
+static uint8_t          flag_to_start_wifi_trans=0;
 
 //extern uint8_t MDK;
 //extern uint8_t NbrOfDataToRead;
@@ -70,7 +95,14 @@ static uint8_t auto_upload_adc_cnt=0;
 //extern __IO uint16_t RxCounter; 
 /* Private function prototypes -----------------------------------------------*/
 void NVIC_Config(void);
- void RTC_Config(void); 
+void RTC_Config(void); 
+uint8_t  App_Send_ReportData(RealData_TypeDef *realtime_data_p ,
+                                Node_Instru_Packet *node_instru_packet,
+                                uint8_t node_addr, 
+                                uint16_t bat_power, 
+                                uint8_t threshold_num,
+                                uint16_t udp_index);
+
 /* Private functions ---------------------------------------------------------*/
 
 /**
@@ -84,13 +116,14 @@ void NVIC_Config(void);
 void TaskHandler(Node_Instru_Packet *node_instru_packet)
 {
     uint32_t cmd;
+    uint16_t adc_len=0;
+    uint16_t adc_speed=0;
 
     
-    if(node_instru_packet->commend2 ==SERVER_TO_NODE_CMD_SET_ADC)
+    if((node_instru_packet->commend1) & SERVER_TO_NODE_CMD_SET_ADC)
     {
-        uint16_t adc_len=0;
-        uint16_t adc_speed=0;
-        //adc_len =node_instru_packet->data[0]+(node_instru_packet->data[1]<<8);
+
+
         adc_speed =node_instru_packet->data[2]+(node_instru_packet->data[3]<<8);
         printf("get adc len is %d,sp is %d\n",adc_len,adc_speed);
         
@@ -122,29 +155,28 @@ void TaskHandler(Node_Instru_Packet *node_instru_packet)
         
     }    
 
-    if(node_instru_packet->commend3 ==SERVER_TO_NODE_CMD_CON_SAMP)
+    if((node_instru_packet->commend1) & SERVER_TO_NODE_CMD_CON_SAMP)
     {
-
+        printf("get continue sample cmd\n");
     }
-    if(node_instru_packet->commend1 ==SERVER_TO_NODE_CMD_START_ADC ||
+    if((node_instru_packet->commend1) & SERVER_TO_NODE_CMD_SET_THRESHOLD)
+    {
+        //get adc_threshold 
+        adc_threshlod = node_instru_packet->data[6]+(node_instru_packet->data[7]<<8);  
+        //get temp threshold
+        temperature_threshold = node_instru_packet->data[8]+(node_instru_packet->data[9]<<8);  
+    }
+    if(((node_instru_packet->commend1) & SERVER_TO_NODE_CMD_START_ADC) ||
         auto_upload_adc_cnt>=AUTO_UPLOAD_ADC_MAX_CNT)
     {
-            //Reset_CC3200();
             ADS869x_Start_Sample();
-            
-            //delay_ms(2000);
-            //delay_ms(2000);
-            //delay_ms(2000);
-            //delay_ms(2000);
+           
             WireLess_Send_ADC_data();
             auto_upload_adc_cnt=0;
     }
     
 }
-uint8_t Rx[1024];
-short temp;
-uint32_t ads8699_reg=0;
-Node_Instru_Packet node_instru_packet;
+
 
 
 uint8_t ConnetTheWifiServer()
@@ -165,8 +197,12 @@ uint8_t ConnetTheWifiServer()
     //联网结束   
     return ret;
 }
-static uint16_t adc1,adc2,power_rate;
-static uint16_t udp_index=0;
+void App_Variable_Init()
+{
+    realtime_data_cnt = 0;
+    flag_to_start_wifi_trans =0;
+
+}
 int main(void)
 {
   /*!< At this stage the microcontroller clock setting is already configured, 
@@ -178,7 +214,10 @@ int main(void)
     uint8_t delay_i =0;
     uint8_t   first_init_wifi=1;
     uint8_t wifi_connect_flag =0;
+    uint8_t  realtime_num=0;
+    RealData_TypeDef *realtime_data_p;
     GlobalData_Para *globaldata_p;
+    App_Variable_Init();
     PowerControl_Init();
     To_Exit_Stop();
     //void globaldata_p;
@@ -213,43 +252,51 @@ int main(void)
                 printf("temp step1 fail!\n");
         //try to connect the wifi server 
         udp_index++;
-        
-        wifi_connect_flag=ConnetTheWifiServer();
-        //Wireless_power_down();
-        if(wifi_connect_flag)
+        PowerControl_Init();
+        delay_ms(500);
+        realtime_num = App_get_RealtimeData(realtime_data_p);
+        temp =DS18B20_ReadTempStep2();  //读取温度
+        printf("temp is %f ^C\n",temp * 0.0625);
+
+
+        //达到一定的数目  要发送数据给服务器
+        if(flag_to_start_wifi_trans)
         {
-            PowerControl_Init();
-            delay_ms(5);          
-            temp =DS18B20_ReadTempStep2();  //读取温度
-            printf("temp is %f ^C\n",temp * 0.0625);
-            bsp_DeInitDS18B20();//temperature read end
-            //read power
-            power_rate=ADC_Config();
-            //read vibrating sensor temp ;
-            ADS869x_Start_Sample_little(&adc1);
-            //发送查询包到服务器
-            if(WiFi_Send_Report(&node_instru_packet,temp,adc1,adc2,power_rate,Get_Node_NUM(),udp_index))
+            flag_to_start_wifi_trans = 0;
+            wifi_connect_flag=ConnetTheWifiServer();
+            //Wireless_power_down();
+            if(wifi_connect_flag)
             {
-                //WiFi_EnterPowerDownMode();
-                printf("re node_instru_packet.instru is   0x%d\n",node_instru_packet.instru);
-                printf("re node_instru_packet.commend1 is 0x%d\n",node_instru_packet.commend1);
-                printf("re node_instru_packet.commend2 is 0x%d\n",node_instru_packet.commend2);
-                printf("re node_instru_packet.commend3 is 0x%d\n",node_instru_packet.commend3);
-                printf("re node_instru_packet.commend4 is 0x%d\n",node_instru_packet.commend4);
-                printf("re node_instru_packet.node_addr is 0x%d\n",node_instru_packet.node_addr);
-                //根据收到的命令执行相应的命令
-                TaskHandler(&node_instru_packet);
+                //read power
+                power_rate=ADC_Config();
+                //发送查询包到服务器
+                if(App_Send_ReportData(realtime_data_p,
+                                        &node_instru_packet,
+                                        Get_Node_NUM(),
+                                        power_rate,
+                                        realtime_num,
+                                        udp_index))
+                {
+                    printf("re node_instru_packet.ADC_sample is   0x%d\n",(node_instru_packet.commend1)&BIT_0);
+                    printf("re node_instru_packet.Set_adc is 0x%d\n",(node_instru_packet.commend1)&BIT_1);
+                    printf("re node_instru_packet.Con_sample is 0x%d\n",(node_instru_packet.commend1)&BIT_2);
+                    printf("re node_instru_packet.Power_sample is 0x%d\n",(node_instru_packet.commend1)&BIT_3);
+                    printf("re node_instru_packet.Set threshold is 0x%d\n",(node_instru_packet.commend1)&BIT_4);
+                    printf("re node_instru_packet.node_addr is 0x%d\n",node_instru_packet.node_addr);
+                    //根据收到的命令执行相应的命令
+                    TaskHandler(&node_instru_packet);
+                }
+                else
+                {
+                    printf("Don't get the Sever response!\n");
+                    
+                }
             }
             else
             {
-                printf("Don't get the Sever response!\n");
+                printf("WIFI AP is miss\n");
                 
             }
-        }
-        else
-        {
-            printf("WIFI status is fail\n");
-            
         }
         PowerControl_DeInit(); //关闭加速度模块
         WiFi_EnterPowerDownMode(); 
@@ -281,6 +328,63 @@ int main(void)
 }
 
 
+
+uint8_t App_get_RealtimeData(RealData_TypeDef *realtime_data_p)
+{
+    uint16_t acceleration_value =0;
+    uint8_t re_realtime_data_cnt=0;
+    ADS869x_Start_Sample_little(&acceleration_value);
+    realtime_data_p = &realtime_data;
+    realtime_data.temperature_data[realtime_data_cnt] = temp;
+    realtime_data.acceleration_data[realtime_data_cnt++] = acceleration_value;
+
+
+    if(realtime_data_cnt >= UE_UPDATE_DATA_30S_NUM)
+    {
+        flag_to_start_wifi_trans =1;
+        re_realtime_data_cnt = realtime_data_cnt;
+        realtime_data_cnt = 0;
+    }
+    return re_realtime_data_cnt;
+}
+
+uint8_t  App_Send_ReportData(RealData_TypeDef *realtime_data_p ,
+                                Node_Instru_Packet *node_instru_packet,
+                                uint8_t node_addr, 
+                                uint16_t bat_power, 
+                                uint8_t threshold_num,
+                                uint16_t udp_index)
+{
+    uint8_t i=0;
+    uint8_t re;
+    node_instru_packet->header1= NODE_INSTRU_HEAD1;
+    node_instru_packet->header2= NODE_INSTRU_HEAD2;
+    node_instru_packet->instru = NODE_TO_SERVER_INST_HEART;
+    node_instru_packet->node_addr =node_addr;
+    //power
+    node_instru_packet->data[0] = bat_power&0xff;
+    node_instru_packet->data[1] =(bat_power>>8)&0xff;
+    //threshold num
+    node_instru_packet->data[2] =threshold_num&0xff;
+    node_instru_packet->data[3] =(threshold_num>>8)&0xff;
+    if(threshold_num>REALTIME_DATA_SIE)
+        threshold_num=REALTIME_DATA_SIE;
+    
+    for(i=0;i<threshold_num;i++)
+    {
+        //threshold value
+        node_instru_packet->data[4+i<<2] =realtime_data_p.acceleration_data[i]&0xff;
+        node_instru_packet->data[5+i<<2] =(realtime_data_p.acceleration_data[i]>>8)&0xff;
+        node_instru_packet->data[6+i<<2] =realtime_data_p.temperature_data[i]&0xff;
+        node_instru_packet->data[7+i<<2] =(realtime_data_p.temperature_data[i]>>8)&0xff;
+   }
+   node_instru_packet->data[126] =udp_index&0xff;
+   node_instru_packet->data[127] =(udp_index>>8)&0xff;
+   
+   re = WiFi_Send_Report_new(node_instru_packet);
+   return re;
+      
+}
 
 #ifdef  USE_FULL_ASSERT
 /**

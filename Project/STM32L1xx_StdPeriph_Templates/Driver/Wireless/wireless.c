@@ -1040,6 +1040,45 @@ uint8_t WiFi_Send_Report(Node_Instru_Packet *node_instru_packet,
    
 }
 
+
+uint8_t WiFi_Send_Report_new(Node_Instru_Packet *node_instru_packet)
+{
+    uint32_t i = 0;
+    uint8_t *p=0;
+    p=(uint8_t *)node_instru_packet;
+    __disable_irq();
+    At_cmd_state=AT_DATA_WAIT_DATA;
+    wireless_rx_cnt=0;
+    for(i=0;i<sizeof(Node_Instru_Packet);i++)
+    {
+        USART_SendData(USART2,(uint8_t)*(p++)); //当产生接收中断的时候,接收该数据，然后再从串口1把数据发送出去
+        while(USART_GetFlagStatus(USART2,USART_FLAG_TXE)==RESET);//等待发送数据完毕);
+    }
+ 
+    __enable_irq();
+    printf("Send report to server\n");
+    memset((void *)node_instru_packet,0,sizeof(Node_Instru_Packet));
+    for(i=0;i<6000;i++)   //wait 3S
+    {
+        delay_ms(1);
+        if(wireless_rx_cnt>=sizeof(Node_Instru_Packet))
+        {
+            memcpy(node_instru_packet, wireless_rx_buff, wireless_rx_cnt);
+            if((node_instru_packet->header1 == NODE_INSTRU_HEAD1)&&
+                (node_instru_packet->header1 == NODE_INSTRU_HEAD1))
+            {
+                if(node_instru_packet->instru == SERVER_TO_NODE_CMD)
+                {
+                    printf("Get the Server cmd\n");
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+   
+}
+
 uint8_t WireLess_Send_ADC_data(void)
 {
     uint16_t i = 0,snd_pkt,adc_packet_len;

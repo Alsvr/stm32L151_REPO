@@ -4,6 +4,7 @@
 #include "stm32l1xx_gpio.h"
 #include "stm32l1xx_rcc.h"
 #include "delay.h"
+#include "dataStore.h"
 
 
 #define NODE_INSTRU_HEAD1       0xFC
@@ -13,10 +14,12 @@
 #define NODE_INSTRU_TAIL2       0xFB
 
 #define SERVER_TO_NODE_CMD     0x01
-#define SERVER_TO_NODE_CMD_START_ADC      0x01
-#define SERVER_TO_NODE_CMD_SET_ADC        0x01
-#define SERVER_TO_NODE_CMD_CON_SAMP       0x01
-#define SERVER_TO_NODE_CMD_SAMP_POWER     0x01
+
+#define SERVER_TO_NODE_CMD_START_ADC      BIT_0
+#define SERVER_TO_NODE_CMD_SET_ADC        BIT_1
+#define SERVER_TO_NODE_CMD_CON_SAMP       BIT_2
+#define SERVER_TO_NODE_CMD_SAMP_POWER     BIT_3
+#define SERVER_TO_NODE_CMD_SET_THRESHOLD  BIT_4
 
 
 
@@ -80,6 +83,7 @@ uint8_t WiFi_Send_Report(Node_Instru_Packet *node_instru_packet,
 
 uint8_t WiFi_EnterLowPowerMode(void);
 uint8_t WiFi_EnterPowerDownMode(void);
+uint8_t WiFi_Send_Report_new(Node_Instru_Packet *node_instru_packet);
 
 void Reset_CC3200(void);
 

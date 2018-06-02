@@ -3,7 +3,7 @@
 #include "stm32l1xx_gpio.h"
 #include "stm32l1xx_rcc.h"
 
-#define ADC_DEBUG
+//#define ADC_DEBUG
 //PB15 DO0
 //PB14 DO1
 //PB13 RVS

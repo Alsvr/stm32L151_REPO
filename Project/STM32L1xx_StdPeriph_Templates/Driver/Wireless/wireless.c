@@ -23,6 +23,12 @@ static uint8_t bu[2]={0,0};
 static uint8_t uart2_buffer[64];
 static uint8_t uart2_cnt = 0;
 
+
+#define WIFI_WAIT_AT_BACK_DELAY 1000 //100ms
+#define WIFI_WAIT_LINK_READY 8000 //5000ms
+
+#define WIFI_WAIT_LINK_OK_DELAY 500 //times
+
 uint8_t  WiFi_SetWifiConfig(GlobalData_Para *globaldata_p);
 void wire_less_uart_init(uint32_t buand)
 {
@@ -102,10 +108,52 @@ void Wireless_power_down(void)
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1|GPIO_Pin_2|GPIO_Pin_3;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;//|GPIO_Pin_2|GPIO_Pin_3;
     GPIO_Init(GPIOA, &GPIO_InitStructure);  
 
 }
+
+uint8_t Wireless_Get_link_status(void)
+{
+    uint16_t time_out_cnt=0;
+    GPIO_InitTypeDef GPIO_InitStructure;
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+    /* Power config*/
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_400KHz;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
+    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+    time_out_cnt = 0;
+    do
+    {
+        delay_ms(1);
+        if(!GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_1))
+        {
+            break;
+        }
+        else
+        {
+            time_out_cnt++;
+        }
+    }while(time_out_cnt < WIFI_WAIT_LINK_READY);
+    
+    if(time_out_cnt >= WIFI_WAIT_LINK_READY)
+    {
+        printf("WiFI WAIT LINK READY time out%d\n",time_out_cnt);
+        return 0;
+    }
+    
+    printf("WiFI WAIT LINK READY success\n");
+    delay_ms(2000);
+    return 1;
+
+    
+
+}
+
 
 void Wireless_power_on(void)
 {
@@ -117,6 +165,8 @@ uint8_t uart_data=0;
 static uint8_t cc3200_start_flag=0;
 const char AT_CONFIG_START[] = {"+++"};  
 const char AT_ENTM[] = {"AT+ENTM\r"};  
+const char AT_RELD[] = {"AT+RELD\r"};
+
 const char AT_E[] = {"AT+E\r"};
 const char AT_a[] = {"a"};
 const char AT_OK[] = {"+OK"};
@@ -131,9 +181,15 @@ const char AT_WSTA_HEAD[] = {"AT+WSTA="};
 const char AT_WSTA_PASSWORD[] = {",12345678\r"};
 const char AT_WKMOD[] = {"AT+WKMOD=TRANS\r"};
 const char AT_WMODE[] = {"AT+WMODE=STA\r"};
+const char AT_Z[] = {"AT+Z\r"};
+const char AT_CFGTF[] = {"AT+CFGTF\r"};
+
+
+
 const char AT_SLPTYPE[] = {"AT+SLPTYPE=4,10\r"};
 const char AT_SOCKA_S[] = {"AT+SOCKA=UDPC,192.168.8.1,8989\r"};
 const char AT_BACK_DISCONNECTION[] = {"+OK=DISCONNECTED"};
+ 
 
 static uint16_t At_cmd_state = 0;
 #define AT_CMD_WAIT_A                0X0001 
@@ -151,28 +207,7 @@ static uint16_t At_cmd_state = 0;
 
 
 
-void Reset_CC3200(void)
-{
-    uint8_t i=0 ,re =0;
-    uint8_t * at_p=0;
-    GPIO_InitTypeDef GPIO_InitStructure;
 
-    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
-    /* Power config*/
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_40MHz;
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
-    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-    GPIO_ResetBits(GPIOB,GPIO_Pin_8);
-
-    delay_ms(50);
-    GPIO_SetBits(GPIOB,GPIO_Pin_8);
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);  
-
-}
 
                 
 void Send_At_Cmd(const char * p,uint8_t num)
@@ -289,8 +324,7 @@ uint8_t WiFi_Enter_CMD_mode(void)
 
 
 }
-#define WIFI_WAIT_AT_BACK_DELAY 1000 //100ms
-#define WIFI_WAIT_LINK_OK_DELAY 500 //times
+
 uint8_t WiFi_GetWifiStatus(void)
 {
     uint16_t time_out_cnt = 0;
@@ -356,6 +390,8 @@ uint8_t WiFi_WaitLinkOk(void)
     }
     return 1;
 
+
+
 }
 uint8_t WiFi_Exit_CMD_mode(void)
 {
@@ -399,6 +435,37 @@ uint8_t WiFi_Exit_CMD_mode(void)
 
 }
 
+uint8_t WiFi_Reset_factry(void)
+{
+    uint16_t time_out_cnt = 0;
+    __disable_irq();
+    At_cmd_state = AT_CMD_WAIT_AT_BACK;  
+    __enable_irq(); 
+    Send_At_Cmd(AT_RELD,strlen(AT_RELD));
+    time_out_cnt = 0;
+    do
+    {
+        delay_ms(10);
+        if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
+        {
+            break;
+        }
+        else
+        {
+            time_out_cnt++;
+        }
+    }while(time_out_cnt < WIFI_WAIT_AT_BACK_DELAY);
+    if(time_out_cnt >= WIFI_WAIT_AT_BACK_DELAY)
+    {
+        printf("WiFi_Reset_factry wait back fail ,wait %d ms\n",time_out_cnt);
+        return 0;
+    }
+    printf("WiFi_Reset_factry get %s wait %d ms\n",&uart2_buffer[2],time_out_cnt);
+    At_cmd_state=AT_DATA_WAIT_DATA;
+    wireless_rx_cnt = 0;
+    return 1;
+
+}
 
 uint8_t WiFi_EnterPowerDownMode(void)
 {
@@ -534,6 +601,41 @@ uint8_t WiFi_EnterNoPowerMode(void)
     }
 
 }
+
+void Reset_CC3200(void)
+{
+#if 0
+    uint8_t i=0 ,re =0;
+    uint8_t * at_p=0;
+    GPIO_InitTypeDef GPIO_InitStructure;
+
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
+    /* Power config*/
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_40MHz;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
+    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    GPIO_ResetBits(GPIOB,GPIO_Pin_8);
+
+    delay_ms(50);
+    GPIO_SetBits(GPIOB,GPIO_Pin_8);
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
+    GPIO_Init(GPIOB, &GPIO_InitStructure); 
+#else
+
+    uint16_t time_out_cnt = 0;
+
+    __disable_irq();
+    At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    Send_At_Cmd(AT_Z,strlen(AT_Z));    
+    __enable_irq(); 
+
+#endif
+
+}
+
 void Init_CC3200(uint8_t first,
                 uint32_t baund)
 {
@@ -549,18 +651,25 @@ void Init_CC3200(uint8_t first,
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
-    Wireless_power_on();
+   
     //enter cmd 
     if(first)
     {
-        WiFi_Enter_CMD_mode();
-        WiFi_SetWifiConfig(0);
-        WiFi_Exit_CMD_mode();
-        Reset_CC3200();
+        Wireless_power_on();
         delay_ms(1000);
+        WiFi_Enter_CMD_mode();
+        //WiFi_Reset_factry();
+        //delay_ms(3000);
+        //WiFi_Enter_CMD_mode();
+        WiFi_SetWifiConfig(0);
+        delay_ms(1000);
+        Reset_CC3200();
+        //WiFi_Exit_CMD_mode();
+        //delay_ms(3000);
     }
     else
-    {
+    {   
+        //WiFi_Enter_CMD_mode();
         Reset_CC3200();
         delay_ms(1000);
         
@@ -781,12 +890,54 @@ uint8_t  WiFi_SetWSTA(char *str)
     }    
 }
 
+uint8_t  WiFi_SetDefault(char *str)
+{
+    uint16_t time_out_cnt = 0;
+
+    __disable_irq();
+    At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    Send_At_Cmd(AT_CFGTF,strlen(AT_CFGTF));    
+
+    __enable_irq(); 
+
+    time_out_cnt = 0;
+    do
+    {
+        delay_ms(1);
+        if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
+        {
+            break;
+        }
+        else
+        {
+            time_out_cnt++;
+        }
+    }while(time_out_cnt < WIFI_WAIT_AT_BACK_DELAY);
+    if(time_out_cnt >= WIFI_WAIT_AT_BACK_DELAY)
+    {
+        printf("WiFi_SetDefault fail %d\n",time_out_cnt);
+        return 0;
+    }
+    printf("WiFi_SetDefault get %s wait %d ms\n",&uart2_buffer[2],time_out_cnt);
+
+    if(strstr((const char *)(&uart2_buffer[2]),AT_OK))
+    {   
+        return 1;
+    }
+    else
+    {
+
+        return 0;
+    }    
+}
+
+
 uint8_t  WiFi_SetWMODE(char *str)
 {
     uint16_t time_out_cnt = 0;
 
     __disable_irq();
-        At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    At_cmd_state = AT_CMD_WAIT_AT_BACK;
     Send_At_Cmd(AT_WMODE,strlen(AT_WMODE));    
 
     __enable_irq(); 
@@ -907,6 +1058,7 @@ uint8_t  WiFi_SetWifiConfig(GlobalData_Para *globaldata_p)
 {
     uint16_t time_out_cnt = 0;
 
+    
     if(WiFi_SetWSTA(0))
         printf("Set WiFi_SetWSTA OK\n");
     else
@@ -932,6 +1084,11 @@ uint8_t  WiFi_SetWifiConfig(GlobalData_Para *globaldata_p)
         printf("Set WiFi_SetWANN OK\n");
     else
         printf("Set WiFi_SetWANN FAIL\n");
+
+    if(WiFi_SetDefault(0))
+        printf("Set WiFi_SetDefault OK\n");
+    else
+        printf("Set WiFi_SetDefault FAIL\n");
 }
 
 static uint16_t buff_ptr=0,valid_data_length=0;
@@ -1041,7 +1198,7 @@ uint8_t WiFi_Send_Report(Node_Instru_Packet *node_instru_packet,
 }
 
 
-uint8_t WiFi_Send_Report_new(Node_Instru_Packet *node_instru_packet)
+uint8_t WiFi_Send_Report_new(Node_Report_Packet *node_instru_packet)
 {
     uint32_t i = 0;
     uint8_t *p=0;

@@ -57,6 +57,51 @@ typedef struct{
     unsigned char tail2;
 }Node_Instru_Packet;
 
+typedef struct{
+    unsigned char header1;
+    unsigned char header2;
+    unsigned char length;
+    unsigned char instru;
+    unsigned char node_addr;
+    unsigned char adc_valid;
+    unsigned char adc_config_valid;
+    unsigned char continue_sample_valid;
+    unsigned char power_sample_valid;
+    unsigned char adc_len[2];
+    unsigned char adc_speed[2];
+    unsigned char adc_continue_packet[2];
+    unsigned char thres_hold_valid[2];
+    unsigned char thres_hold_accelebration[2];
+    unsigned char thres_hold_temperature[2];
+    unsigned char data[116];
+    unsigned char check_sum;
+    unsigned char tail1;
+    unsigned char tail2;
+}Server_Instru_Packet;
+
+typedef struct {
+	unsigned char header1;
+	unsigned char header2;
+	unsigned char length;
+	unsigned char instru;
+	unsigned char node_addr;
+	unsigned char commend1;
+	unsigned char commend2;
+	unsigned char commend3;
+	unsigned char commend4;
+	unsigned char power[2];
+	unsigned char temp_adc_num[2];
+	unsigned char acceleration_data[40];
+	unsigned char temperature_data[40];
+	unsigned char data[42];
+	unsigned char udp_index[2];
+	unsigned char check_sum;
+	unsigned char tail1;
+	unsigned char tail2;
+}Node_Report_Packet;
+
+
+
 
 
 
@@ -83,8 +128,9 @@ uint8_t WiFi_Send_Report(Node_Instru_Packet *node_instru_packet,
 
 uint8_t WiFi_EnterLowPowerMode(void);
 uint8_t WiFi_EnterPowerDownMode(void);
-uint8_t WiFi_Send_Report_new(Node_Instru_Packet *node_instru_packet);
+uint8_t WiFi_Send_Report_new(Node_Report_Packet *node_instru_packet);
 
 void Reset_CC3200(void);
+uint8_t Wireless_Get_link_status(void);
 
 #endif

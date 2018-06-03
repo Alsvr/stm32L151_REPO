@@ -50,18 +50,41 @@
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 //doneload cmd
+#define   DETECTION_DEBUG
 
 #define AUTO_UPLOAD_ADC_MAX_CNT 30 
 #define REALTIME_DATA_SIE       32 
 
-#define UE_UPDATE_DATA_30S_NUM  20
-#define UE_UPDATE_DATA_30S_EMERGENCY_NUM  10
 
-#define UE_UPDATE_DATA_PERIOD_EMERGENCY_NUM  5
+#ifdef DETECTION_DEBUG
+#define UE_SLEEP_TIME_S         10
+
+#define UE_UPDATE_DATA_30S_NUM  20              //上报实时数据的间隔  
+#define UE_UPDATE_DATA_30S_EMERGENCY_NUM  2     //警报模式 上报实时数据的间隔
+
+#define UE_UPDATE_DATA_PERIOD_EMERGENCY_NUM  2*UE_UPDATE_DATA_30S_EMERGENCY_NUM     //警报模式 上报实时数据的间隔 持续的间隔数目
+#define UE_UPDATE_DATA_PERIOD_PRETECION_NUM  1*UE_UPDATE_DATA_30S_EMERGENCY_NUM    //保护模式 上报实时数据的间隔 下 持续的间隔数目 12*30
+#else  // realeas mode
+#define UE_SLEEP_TIME_S         30
+
+#define UE_UPDATE_DATA_30S_NUM  20            //上报实时数据的间隔  
+#define UE_UPDATE_DATA_30S_EMERGENCY_NUM      2  //警报模式 上报实时数据的间隔
+
+#define UE_UPDATE_DATA_PERIOD_EMERGENCY_NUM   10*UE_UPDATE_DATA_30S_EMERGENCY_NUM //警报模式 上报实时数据的间隔 持续的间隔数目
+#define UE_UPDATE_DATA_PERIOD_PRETECION_NUM   12*UE_UPDATE_DATA_30S_NUM          //保护模式 上报实时数据的间隔 下 持续的间隔数目 12*30
+
+#endif
+
+#define UE_DETECTION_NORMAL_MODE     0x00
+#define UE_DETECTION_EMERGENCY_MODE  0x01
+#define UE_DETECTION_PROTECT_MODE    0x02
 
 
-#define UE_DETECTION_NORMAL_MODE  0
-#define UE_DETECTION_EMERGENCY_MODE 1
+
+#define ACCELEBRATION_THRESHOLD_DEFALUT  1000
+#define TEMPERATURE_THRESHOLD_DEFALUT    (28<<4)
+
+
 //emergency  0
 
 /* Private macro -------------------------------------------------------------*/
@@ -111,7 +134,7 @@ static uint8_t  ue_update_date_cnt_30s =0;
 //extern __IO uint16_t RxCounter; 
 /* Private function prototypes -----------------------------------------------*/
 void NVIC_Config(void);
-void RTC_Config(void); 
+//void RTC_Config(void); 
 uint8_t  App_Send_ReportData(RealData_TypeDef *realtime_data_p ,
                                 Node_Report_Packet *node_instru_packet,
                                 uint8_t node_addr, 
@@ -194,10 +217,10 @@ void TaskHandler(Server_Instru_Packet *node_instru_packet)
         temperature_threshold_g = node_instru_packet->data[8]+(node_instru_packet->data[9]<<8);  
     }
     if(((node_instru_packet->adc_valid) & SERVER_TO_NODE_CMD_START_ADC) ||
-        auto_upload_adc_cnt>=AUTO_UPLOAD_ADC_MAX_CNT)
+        auto_upload_adc_cnt>=AUTO_UPLOAD_ADC_MAX_CNT ||
+        normal_detection_state == UE_DETECTION_EMERGENCY_MODE)
     {
             ADS869x_Start_Sample();
-           
             WireLess_Send_ADC_data();
             auto_upload_adc_cnt=0;
     }
@@ -238,6 +261,9 @@ void App_Variable_Init()
     ue_update_date_cnt_30s = UE_UPDATE_DATA_30S_NUM ;
     normal_detection_state = UE_DETECTION_NORMAL_MODE;
 
+    temperature_threshold_g = TEMPERATURE_THRESHOLD_DEFALUT;
+    acceleration_threshlod_g = ACCELEBRATION_THRESHOLD_DEFALUT;
+
 }
 int main(void)
 {
@@ -274,7 +300,7 @@ int main(void)
     ADS869x_Start_Sample_Debug();
     while(1){}
 #endif
-    RTC_Config();
+    RTC_Config(UE_SLEEP_TIME_S);
     auto_upload_adc_cnt = AUTO_UPLOAD_ADC_MAX_CNT;
     while(1)
     {
@@ -282,7 +308,7 @@ int main(void)
         if(!DS18B20_ReadTempStep1())
             printf("temp step1 fail!\n");
         
-        printf("wake up \n");
+        printf("Node %d wake up \n",globaldata_p->node_num);
         Led_Init();
         Led_Open();
         
@@ -333,10 +359,11 @@ int main(void)
                 printf("WIFI AP is miss\n");
                 
             }
+            WiFi_EnterPowerDownMode(); 
+            Wireless_power_down();
         }
         PowerControl_DeInit(); //关闭加速度模块
-        WiFi_EnterPowerDownMode(); 
-        Wireless_power_down();
+
         printf("Main Go to Sleep\n");
 #if 1
          //进入休眠模式 30s
@@ -367,49 +394,75 @@ uint8_t App_get_RealtimeData(RealData_TypeDef *realtime_data_p)
     current_temp_value =DS18B20_ReadTempStep2();  //读取温度
 
 
-    //判断温度与加速度阈值是否超过限制
-    printf("current temp limt is %d\n",temperature_threshold_g);
-    printf("current acceleration limit is %d\n",acceleration_threshlod_g);
+    
+    
 
-    if((current_temp_value>temperature_threshold_g ||
-        acurrent_cceleration_value >acceleration_threshlod_g)&&
-        (normal_detection_state == UE_DETECTION_NORMAL_MODE))
-    {
-        threshold_alarm = 1; //超标警报
-        if(current_temp_value>temperature_threshold_g)
-            printf("temperature Alarm %d\n",current_temp_value);
-        if(acurrent_cceleration_value>acceleration_threshlod_g)
-            printf("Accelebration Alarm %d\n",acurrent_cceleration_value);
-        //进入紧急模式 5min 更新一次 且上传ADC数据
-        ue_update_date_cnt_30s = UE_UPDATE_DATA_30S_EMERGENCY_NUM;
-        normal_detection_state = UE_DETECTION_EMERGENCY_MODE;
-        ue_emergency_state_cnt = 0;
-    }
-
+    printf("The detection Mode is %d，distance to report is%d\n",
+        normal_detection_state,
+        ue_update_date_cnt_30s-realtime_data_cnt);
     realtime_data_p->temperature_data[realtime_data_cnt] = current_temp_value;
     realtime_data_p->acceleration_data[realtime_data_cnt] = acurrent_cceleration_value;
-   
-    printf("current temp is %f ^C\n",realtime_data_p->temperature_data[realtime_data_cnt]* 0.0625);
-    printf("current acceleration is %d\n",realtime_data_p->acceleration_data[realtime_data_cnt]);
+    
+    printf("current temp is %f ^C,limit is %d\n",
+        realtime_data_p->temperature_data[realtime_data_cnt]* 0.0625,
+        temperature_threshold_g);
+    printf("current acceleration is %d, limit is%d\n",
+        realtime_data_p->acceleration_data[realtime_data_cnt],
+        acceleration_threshlod_g);
 
+    if(normal_detection_state == UE_DETECTION_NORMAL_MODE)
+    {
+
+        //正常模式下判断是否超过限制
+        if(current_temp_value>temperature_threshold_g ||
+        acurrent_cceleration_value >acceleration_threshlod_g)
+        {
+            threshold_alarm = 1; //超标警报
+            //打印报警类别
+            if(current_temp_value>temperature_threshold_g)
+                printf("Node into emergency mode,temperature Alarm %d\n",current_temp_value);
+            if(acurrent_cceleration_value>acceleration_threshlod_g)
+                printf("Node into emergency mode ,Accelebration Alarm %d\n",acurrent_cceleration_value);
+            //进入紧急模式 5min 更新一次 且上传ADC数据
+            ue_update_date_cnt_30s = UE_UPDATE_DATA_30S_EMERGENCY_NUM;  //上报间隔次数
+            normal_detection_state = UE_DETECTION_EMERGENCY_MODE;  //更新模式
+            ue_emergency_state_cnt = 0;  //emergency mode计数复位
+            realtime_data_cnt=0;
+        }
+    }
+    else if(normal_detection_state == UE_DETECTION_EMERGENCY_MODE)
+    {
+        ue_emergency_state_cnt++;
+
+        if(ue_emergency_state_cnt > (UE_UPDATE_DATA_PERIOD_EMERGENCY_NUM))
+        {
+            printf("Node into protect mode %d\n",current_temp_value);
+            
+            normal_detection_state = UE_DETECTION_PROTECT_MODE;   //更新模式
+            ue_update_date_cnt_30s = UE_UPDATE_DATA_30S_NUM;   //上报间隔次数
+            ue_emergency_state_cnt = 0;
+            realtime_data_cnt=0;
+        }
+    }
+    else if(normal_detection_state == UE_DETECTION_PROTECT_MODE)
+    {
+        ue_emergency_state_cnt++;
+        if(ue_emergency_state_cnt > UE_UPDATE_DATA_PERIOD_PRETECION_NUM)
+        {
+            ue_emergency_state_cnt = 0;
+            normal_detection_state = UE_DETECTION_NORMAL_MODE;   //更新模式
+            ue_update_date_cnt_30s = UE_UPDATE_DATA_30S_NUM;  //上报间隔次数
+            realtime_data_cnt=0;
+        }
+    }
+    
     realtime_data_cnt++;
+    
     if((realtime_data_cnt >= ue_update_date_cnt_30s) ||
        (threshold_alarm))
     {
         re_realtime_data_cnt = realtime_data_cnt;
         realtime_data_cnt = 0;
-        //判断当前是否为紧急模式
-        if(normal_detection_state == UE_DETECTION_EMERGENCY_MODE)
-        {
-            ue_emergency_state_cnt++;   //紧急模式计数 5*5mine  25分钟的紧急模式
-            if(ue_emergency_state_cnt>=UE_UPDATE_DATA_PERIOD_EMERGENCY_NUM)
-            { 
-                //紧急模式到期回到正常模式
-                normal_detection_state = UE_DETECTION_NORMAL_MODE;
-                ue_update_date_cnt_30s = UE_UPDATE_DATA_30S_NUM;
-            }
-
-        }
         return re_realtime_data_cnt;
     }
     return 0;

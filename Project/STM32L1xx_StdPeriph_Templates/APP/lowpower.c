@@ -41,8 +41,9 @@ void Enter_Stop_Mode(void)
 }
 
 
-void RTC_Config(void)
+void RTC_Config(uint8_t second)
 {
+  uint16_t RTC_CW=0;  
   NVIC_InitTypeDef  NVIC_InitStructure;
   EXTI_InitTypeDef  EXTI_InitStructure;
 
@@ -88,7 +89,13 @@ void RTC_Config(void)
  
   /* RTC Wakeup Interrupt Generation: Clock Source: RTCDiv_16, Wakeup Time Base: 4s */
   RTC_WakeUpClockConfig(RTC_WakeUpClock_RTCCLK_Div16);
-  RTC_SetWakeUpCounter(0xF000);
+
+
+  if(second >30)
+    second=30;
+  RTC_CW = second*2048;
+
+  RTC_SetWakeUpCounter(RTC_CW);
 
   /* Enable the Wakeup Interrupt */
   RTC_ITConfig(RTC_IT_WUT, ENABLE);  

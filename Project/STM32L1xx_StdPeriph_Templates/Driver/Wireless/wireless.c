@@ -108,7 +108,7 @@ void Wireless_power_down(void)
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;//|GPIO_Pin_2|GPIO_Pin_3;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1|GPIO_Pin_3;
     GPIO_Init(GPIOA, &GPIO_InitStructure);  
 
 }

@@ -453,7 +453,7 @@ void Timinit(uint16_t speed)
     if((speed!=1000)||(speed!=2000)||(speed!=4000))
         tim_prescaler=1000;
     tim_prescaler=(500000/speed)-1;
-    printf("tim_prescaler is %d\n",tim_prescaler);
+    //printf("tim_prescaler is %d\n",tim_prescaler);
     PowerControl_Init();
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
     TIM_TimeBaseStructure.TIM_Period = 63;

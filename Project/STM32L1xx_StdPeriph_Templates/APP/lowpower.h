@@ -5,7 +5,9 @@
 
 void Enter_Stop_Mode(void);
 void To_Exit_Stop(void);
-void RTC_Config(void);
+
+void RTC_Config(uint8_t second);
+
 #endif
 
 

@@ -265,8 +265,10 @@ int16_t DS18B20_ReadTempReg(void)
 
 int16_t DS18B20_ReadTempStep1(void)
 {
+    
     uint8_t temp1, temp2;
     uint8_t TL , TH , config;
+    bsp_InitDS18B20();
     /* 总线复位 */
     if (DS18B20_Reset() == 0)
     {
@@ -301,7 +303,7 @@ int16_t DS18B20_ReadTempStep2(void)
 
 	config = DS18B20_ReadByte();	/* 读温度值高字节 */
     
-    printf("TL is %X,TH is %X config is %X!\n",TL,TH,config);
+    //printf("TL is %X,TH is %X config is %X!\n",TL,TH,config);
     DS18B20_Reset();
 	return ((temp2 << 8) | temp1);	/* 返回16位寄存器值 */
 }
@@ -372,6 +374,9 @@ int16_t DS18B20_ReadTempByID(uint8_t *_id)
 
 	return ((temp2 << 8) | temp1);	/* 返回16位寄存器值 */
 }
+
+
+
 
 
 /*

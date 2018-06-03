@@ -53,7 +53,16 @@
 
 #define AUTO_UPLOAD_ADC_MAX_CNT 30 
 #define REALTIME_DATA_SIE       32 
-#define UE_UPDATE_DATA_30S_NUM  10
+
+#define UE_UPDATE_DATA_30S_NUM  20
+#define UE_UPDATE_DATA_30S_EMERGENCY_NUM  10
+
+#define UE_UPDATE_DATA_PERIOD_EMERGENCY_NUM  5
+
+
+#define UE_DETECTION_NORMAL_MODE  0
+#define UE_DETECTION_EMERGENCY_MODE 1
+//emergency  0
 
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
@@ -71,15 +80,18 @@ typedef struct
 } RealData_TypeDef;
 
 
+static uint8_t normal_detection_state= 0;
+static uint8_t ue_emergency_state_cnt= 0;
+
 static uint8_t auto_upload_adc_cnt= 0;
-static uint16_t adc_threshlod = 0;  
-static uint16_t temperature_threshold = 0;  
+static uint16_t acceleration_threshlod_g = 0;  
+static uint16_t temperature_threshold_g = 0;  
 static uint8_t  first_boot=0;
 
 static uint16_t power_rate;
 static uint16_t udp_index=0;
 
-uint8_t Rx[1024];
+//uint8_t Rx[1024];
 short temp;
 uint32_t ads8699_reg=0;
 Node_Instru_Packet node_instru_packet;
@@ -90,6 +102,8 @@ static RealData_TypeDef realtime_data_g;
 static uint8_t          realtime_data_cnt=0;
 
 //static uint8_t          flag_to_start_wifi_trans=0;
+
+static uint8_t  ue_update_date_cnt_30s =0;
 
 //extern uint8_t MDK;
 //extern uint8_t NbrOfDataToRead;
@@ -175,9 +189,9 @@ void TaskHandler(Server_Instru_Packet *node_instru_packet)
     if((node_instru_packet->thres_hold_valid[0]) & SERVER_TO_NODE_CMD_SET_THRESHOLD)
     {
         //get adc_threshold 
-        adc_threshlod = node_instru_packet->data[6]+(node_instru_packet->data[7]<<8);  
+        acceleration_threshlod_g = node_instru_packet->data[6]+(node_instru_packet->data[7]<<8);  
         //get temp threshold
-        temperature_threshold = node_instru_packet->data[8]+(node_instru_packet->data[9]<<8);  
+        temperature_threshold_g = node_instru_packet->data[8]+(node_instru_packet->data[9]<<8);  
     }
     if(((node_instru_packet->adc_valid) & SERVER_TO_NODE_CMD_START_ADC) ||
         auto_upload_adc_cnt>=AUTO_UPLOAD_ADC_MAX_CNT)
@@ -221,6 +235,8 @@ void App_Variable_Init()
 {
     realtime_data_cnt = 0;
 //    flag_to_start_wifi_trans =0;
+    ue_update_date_cnt_30s = UE_UPDATE_DATA_30S_NUM ;
+    normal_detection_state = UE_DETECTION_NORMAL_MODE;
 
 }
 int main(void)
@@ -262,16 +278,19 @@ int main(void)
     auto_upload_adc_cnt = AUTO_UPLOAD_ADC_MAX_CNT;
     while(1)
     {
-        bsp_InitDS18B20();
+        PowerControl_Init();
         if(!DS18B20_ReadTempStep1())
             printf("temp step1 fail!\n");
         
         printf("wake up \n");
         Led_Init();
-        PowerControl_Init();
+        Led_Open();
+        
+        
+        delay_ms(1000);
         realtime_num = App_get_RealtimeData(realtime_data_p);
-        //flag_to_start_wifi_trans=1;
-       
+      
+        Led_Close();
         //达到一定的数目  要发送数据给服务器 但是开机第一次要上传
         if(!first_boot)
         {
@@ -323,12 +342,6 @@ int main(void)
          //进入休眠模式 30s
          Enter_Stop_Mode(); //30S
          To_Exit_Stop(); 
-         //Enter_Stop_Mode(); //30S
-         //To_Exit_Stop(); 
-         //Enter_Stop_Mode(); //30S
-         //To_Exit_Stop(); 
-         //Enter_Stop_Mode(); //30S
-         //To_Exit_Stop(); 
 #else
          for(delay_i=0;delay_i<20;delay_i++)
          {
@@ -336,10 +349,6 @@ int main(void)
 
          }
 #endif
-         //auto_upload_adc_cnt++; //30S  update 
-
-   
-
         }
 
 }
@@ -348,30 +357,59 @@ int main(void)
 
 uint8_t App_get_RealtimeData(RealData_TypeDef *realtime_data_p)
 {
-    uint16_t acceleration_value =0;
+    uint16_t acurrent_cceleration_value =0;
     uint16_t current_temp_value =0;
     uint8_t re_realtime_data_cnt=0;
     uint8_t threshold_alarm=0;
-    ADS869x_Start_Sample_little(&acceleration_value);
-
+    //读取实时加速度
+    ADS869x_Start_Sample_little(&acurrent_cceleration_value);
+    //读取实时温度
     current_temp_value =DS18B20_ReadTempStep2();  //读取温度
 
 
+    //判断温度与加速度阈值是否超过限制
+    printf("current temp limt is %d\n",temperature_threshold_g);
+    printf("current acceleration limit is %d\n",acceleration_threshlod_g);
+
+    if((current_temp_value>temperature_threshold_g ||
+        acurrent_cceleration_value >acceleration_threshlod_g)&&
+        (normal_detection_state == UE_DETECTION_NORMAL_MODE))
+    {
+        threshold_alarm = 1; //超标警报
+        if(current_temp_value>temperature_threshold_g)
+            printf("temperature Alarm %d\n",current_temp_value);
+        if(acurrent_cceleration_value>acceleration_threshlod_g)
+            printf("Accelebration Alarm %d\n",acurrent_cceleration_value);
+        //进入紧急模式 5min 更新一次 且上传ADC数据
+        ue_update_date_cnt_30s = UE_UPDATE_DATA_30S_EMERGENCY_NUM;
+        normal_detection_state = UE_DETECTION_EMERGENCY_MODE;
+        ue_emergency_state_cnt = 0;
+    }
+
     realtime_data_p->temperature_data[realtime_data_cnt] = current_temp_value;
-    realtime_data_p->acceleration_data[realtime_data_cnt] = acceleration_value;
-    
+    realtime_data_p->acceleration_data[realtime_data_cnt] = acurrent_cceleration_value;
+   
     printf("current temp is %f ^C\n",realtime_data_p->temperature_data[realtime_data_cnt]* 0.0625);
     printf("current acceleration is %d\n",realtime_data_p->acceleration_data[realtime_data_cnt]);
 
-
-    //threshold_alarm =1;
     realtime_data_cnt++;
-    if((realtime_data_cnt >= UE_UPDATE_DATA_30S_NUM) ||
-        threshold_alarm)
+    if((realtime_data_cnt >= ue_update_date_cnt_30s) ||
+       (threshold_alarm))
     {
-        ///flag_to_start_wifi_trans =1;
         re_realtime_data_cnt = realtime_data_cnt;
         realtime_data_cnt = 0;
+        //判断当前是否为紧急模式
+        if(normal_detection_state == UE_DETECTION_EMERGENCY_MODE)
+        {
+            ue_emergency_state_cnt++;   //紧急模式计数 5*5mine  25分钟的紧急模式
+            if(ue_emergency_state_cnt>=UE_UPDATE_DATA_PERIOD_EMERGENCY_NUM)
+            { 
+                //紧急模式到期回到正常模式
+                normal_detection_state = UE_DETECTION_NORMAL_MODE;
+                ue_update_date_cnt_30s = UE_UPDATE_DATA_30S_NUM;
+            }
+
+        }
         return re_realtime_data_cnt;
     }
     return 0;

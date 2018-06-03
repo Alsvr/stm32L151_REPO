@@ -413,7 +413,7 @@ void ADS869x_SetRefMode(void)
     uint32_t reg_data=0;
     ADS869x_WriteREG(ADS869x_RANGE_SEL,0x000A); //向寄存器地址05H中写入数据69H解锁RST寄存器
     reg_data = ADS869x_ReadREG(ADS869x_RANGE_SEL);
-    printf("reg14 is %d\n",reg_data);
+//    printf("reg14 is %d\n",reg_data);
 }
 
 

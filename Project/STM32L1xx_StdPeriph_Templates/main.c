@@ -50,7 +50,7 @@
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 //doneload cmd
-#define   DETECTION_DEBUG
+//#define   DETECTION_DEBUG
 
 #define AUTO_UPLOAD_ADC_MAX_CNT 30 
 #define REALTIME_DATA_SIE       32 
@@ -64,14 +64,21 @@
 
 #define UE_UPDATE_DATA_PERIOD_EMERGENCY_NUM  2*UE_UPDATE_DATA_30S_EMERGENCY_NUM     //警报模式 上报实时数据的间隔 持续的间隔数目
 #define UE_UPDATE_DATA_PERIOD_PRETECION_NUM  1*UE_UPDATE_DATA_30S_EMERGENCY_NUM    //保护模式 上报实时数据的间隔 下 持续的间隔数目 12*30
+
+#define ACCELEBRATION_THRESHOLD_DEFALUT  1000
+#define TEMPERATURE_THRESHOLD_DEFALUT    (28<<4)
+
 #else  // realeas mode
 #define UE_SLEEP_TIME_S         30
 
-#define UE_UPDATE_DATA_30S_NUM  20            //上报实时数据的间隔  
+#define UE_UPDATE_DATA_30S_NUM  20               //上报实时数据的间隔  
 #define UE_UPDATE_DATA_30S_EMERGENCY_NUM      2  //警报模式 上报实时数据的间隔
 
 #define UE_UPDATE_DATA_PERIOD_EMERGENCY_NUM   10*UE_UPDATE_DATA_30S_EMERGENCY_NUM //警报模式 上报实时数据的间隔 持续的间隔数目
 #define UE_UPDATE_DATA_PERIOD_PRETECION_NUM   12*UE_UPDATE_DATA_30S_NUM          //保护模式 上报实时数据的间隔 下 持续的间隔数目 12*30
+
+#define ACCELEBRATION_THRESHOLD_DEFALUT  1000
+#define TEMPERATURE_THRESHOLD_DEFALUT    (65<<4)
 
 #endif
 
@@ -81,8 +88,8 @@
 
 
 
-#define ACCELEBRATION_THRESHOLD_DEFALUT  1000
-#define TEMPERATURE_THRESHOLD_DEFALUT    (28<<4)
+
+
 
 
 //emergency  0
@@ -153,14 +160,14 @@ uint8_t App_get_RealtimeData(RealData_TypeDef *realtime_data_p);
   
 
 
-void TaskHandler(Server_Instru_Packet *node_instru_packet)
+void TaskHandler(Server_Instru_Packet *server_instru_packet)
 {
 //    uint32_t cmd;
     uint16_t adc_len=0;
     uint16_t adc_speed=0;
-    Server_Instru_Packet *server_instru_packet;
+    //Server_Instru_Packet *server_instru_packet;
 
-    server_instru_packet = (Server_Instru_Packet *)node_instru_packet;
+    //server_instru_packet = (Server_Instru_Packet *)node_instru_packet;
 
     printf("re node_instru_packet.ADC_sample is   0x%d\n",server_instru_packet->adc_valid);
     printf("re node_instru_packet.Set_adc is 0x%d\n",server_instru_packet->adc_config_valid);
@@ -169,14 +176,12 @@ void TaskHandler(Server_Instru_Packet *node_instru_packet)
     printf("re node_instru_packet.Set threshold is 0x%d\n",server_instru_packet->thres_hold_valid[0]);
     printf("re node_instru_packet.node_addr is 0x%d\n",server_instru_packet->node_addr);
                     
-    if(server_instru_packet->adc_config_valid)
+    if((server_instru_packet->adc_config_valid)&SERVER_TO_NODE_CMD_SET_ADC)
     {
 
 
-        adc_speed =node_instru_packet->data[2]+(node_instru_packet->data[3]<<8);
+        adc_speed = server_instru_packet->adc_len[0] + (server_instru_packet->adc_len[1]<<8);//server_instru_packet-> node_instru_packet->data[2]+(node_instru_packet->data[3]<<8);
         printf("get adc len is %d,sp is %d\n",adc_len,adc_speed);
-        
-        
          switch(adc_speed)
         {
             case 0:
@@ -204,19 +209,20 @@ void TaskHandler(Server_Instru_Packet *node_instru_packet)
         
     }    
 
-    if((node_instru_packet->continue_sample_valid) & SERVER_TO_NODE_CMD_CON_SAMP)
+    if((server_instru_packet->continue_sample_valid)&SERVER_TO_NODE_CMD_CON_SAMP)
     {
         printf("get continue sample cmd\n");
     }
     
-    if((node_instru_packet->thres_hold_valid[0]) & SERVER_TO_NODE_CMD_SET_THRESHOLD)
+    if((server_instru_packet->thres_hold_valid[0]) & SERVER_TO_NODE_CMD_SET_THRESHOLD)
     {
         //get adc_threshold 
-        acceleration_threshlod_g = node_instru_packet->data[6]+(node_instru_packet->data[7]<<8);  
+        acceleration_threshlod_g = server_instru_packet->thres_hold_accelebration[0] +(server_instru_packet->thres_hold_accelebration[1]<<8);  
         //get temp threshold
-        temperature_threshold_g = node_instru_packet->data[8]+(node_instru_packet->data[9]<<8);  
+        temperature_threshold_g = server_instru_packet->thres_hold_temperature[0]+(server_instru_packet->thres_hold_temperature[1]<<8);  
+        printf("Threshold set temp is%d，acc is%d\n",temperature_threshold_g,acceleration_threshlod_g);
     }
-    if(((node_instru_packet->adc_valid) & SERVER_TO_NODE_CMD_START_ADC) ||
+    if(((server_instru_packet->adc_valid) & SERVER_TO_NODE_CMD_START_ADC) ||
         auto_upload_adc_cnt>=AUTO_UPLOAD_ADC_MAX_CNT ||
         normal_detection_state == UE_DETECTION_EMERGENCY_MODE)
     {
@@ -304,11 +310,11 @@ int main(void)
     auto_upload_adc_cnt = AUTO_UPLOAD_ADC_MAX_CNT;
     while(1)
     {
+        printf("*********Node %d wake up*********\n",globaldata_p->node_num);
         PowerControl_Init();
         if(!DS18B20_ReadTempStep1())
             printf("temp step1 fail!\n");
         
-        printf("Node %d wake up \n",globaldata_p->node_num);
         Led_Init();
         Led_Open();
         
@@ -403,9 +409,9 @@ uint8_t App_get_RealtimeData(RealData_TypeDef *realtime_data_p)
     realtime_data_p->temperature_data[realtime_data_cnt] = current_temp_value;
     realtime_data_p->acceleration_data[realtime_data_cnt] = acurrent_cceleration_value;
     
-    printf("current temp is %f ^C,limit is %d\n",
+    printf("current temp is %f ^C,limit is %f\n",
         realtime_data_p->temperature_data[realtime_data_cnt]* 0.0625,
-        temperature_threshold_g);
+        temperature_threshold_g*0.0625);
     printf("current acceleration is %d, limit is%d\n",
         realtime_data_p->acceleration_data[realtime_data_cnt],
         acceleration_threshlod_g);

@@ -15,11 +15,11 @@
 
 #define SERVER_TO_NODE_CMD     0x01
 
-#define SERVER_TO_NODE_CMD_START_ADC      BIT_0
-#define SERVER_TO_NODE_CMD_SET_ADC        BIT_1
-#define SERVER_TO_NODE_CMD_CON_SAMP       BIT_2
-#define SERVER_TO_NODE_CMD_SAMP_POWER     BIT_3
-#define SERVER_TO_NODE_CMD_SET_THRESHOLD  BIT_4
+#define SERVER_TO_NODE_CMD_START_ADC      0x01
+#define SERVER_TO_NODE_CMD_SET_ADC        0x01
+#define SERVER_TO_NODE_CMD_CON_SAMP       0x01
+#define SERVER_TO_NODE_CMD_SAMP_POWER     0x01
+#define SERVER_TO_NODE_CMD_SET_THRESHOLD  0x05
 
 
 
@@ -57,6 +57,7 @@ typedef struct{
     unsigned char tail2;
 }Node_Instru_Packet;
 
+
 typedef struct{
     unsigned char header1;
     unsigned char header2;
@@ -78,6 +79,7 @@ typedef struct{
     unsigned char tail1;
     unsigned char tail2;
 }Server_Instru_Packet;
+
 
 typedef struct {
 	unsigned char header1;

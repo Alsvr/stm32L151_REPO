@@ -27,7 +27,7 @@ static uint8_t uart2_cnt = 0;
 #define WIFI_WAIT_AT_BACK_DELAY 1000 //100ms
 #define WIFI_WAIT_LINK_READY 8000 //5000ms
 
-#define WIFI_WAIT_LINK_OK_DELAY 500 //times
+#define WIFI_WAIT_LINK_OK_DELAY 12 //times
 
 uint8_t  WiFi_SetWifiConfig(GlobalData_Para *globaldata_p);
 void wire_less_uart_init(uint32_t buand)
@@ -189,6 +189,8 @@ const char AT_CFGTF[] = {"AT+CFGTF\r"};
 const char AT_SLPTYPE[] = {"AT+SLPTYPE=4,10\r"};
 const char AT_SOCKA_S[] = {"AT+SOCKA=UDPC,192.168.8.1,8989\r"};
 const char AT_BACK_DISCONNECTION[] = {"+OK=DISCONNECTED"};
+const char AT_BACK_CONNECTION[] = {"+OK=Widora"};
+
  
 
 static uint16_t At_cmd_state = 0;
@@ -341,6 +343,7 @@ uint8_t WiFi_GetWifiStatus(void)
         delay_ms(500);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
+            delay_ms(5);  //等待数据接收完毕
             break;
         }
         else
@@ -359,11 +362,14 @@ uint8_t WiFi_GetWifiStatus(void)
     {   
         return 0;
     }
+    else if(strstr((const char *)(&uart2_buffer[2]),AT_BACK_CONNECTION))
+    {   
+        return 1;
+    }
+    
     else
     {
-       // printf("WiFi_GetWifiStatus pass\n");
-       
-       return 1;
+       return 0;
     }
 }
 
@@ -391,7 +397,6 @@ uint8_t WiFi_WaitLinkOk(void)
     return 1;
 
 
-
 }
 uint8_t WiFi_Exit_CMD_mode(void)
 {
@@ -407,6 +412,7 @@ uint8_t WiFi_Exit_CMD_mode(void)
         delay_ms(1);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
+            delay_ms(5);  //等待数据接收完毕
             break;
         }
         else
@@ -448,6 +454,7 @@ uint8_t WiFi_Reset_factry(void)
         delay_ms(10);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
+            delay_ms(5);  //等待数据接收完毕
             break;
         }
         else
@@ -484,6 +491,7 @@ uint8_t WiFi_EnterPowerDownMode(void)
         delay_ms(1);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
+            delay_ms(5);  //等待数据接收完毕
             break;
         }
         else
@@ -530,6 +538,7 @@ uint8_t WiFi_EnterLowPowerMode(void)
         delay_ms(1);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
+            delay_ms(5);  //等待数据接收完毕
             break;
         }
         else
@@ -575,6 +584,7 @@ uint8_t WiFi_EnterNoPowerMode(void)
         delay_ms(1);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
+            delay_ms(5);  //等待数据接收完毕
             break;
         }
         else
@@ -779,6 +789,7 @@ uint8_t  WiFi_SetSOCKA(char *str)
         delay_ms(1);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
+            delay_ms(5);  //等待数据接收完毕
             break;
         }
         else
@@ -821,6 +832,7 @@ uint8_t  WiFi_SetWKMOD(char *str)
         delay_ms(1);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
+            delay_ms(5);  //等待数据接收完毕
             break;
         }
         else
@@ -865,6 +877,7 @@ uint8_t  WiFi_SetWSTA(char *str)
         delay_ms(1);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
+            delay_ms(5);  //等待数据接收完毕
             break;
         }
         else
@@ -906,6 +919,7 @@ uint8_t  WiFi_SetDefault(char *str)
         delay_ms(1);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
+            delay_ms(5);  //等待数据接收完毕
             break;
         }
         else
@@ -948,6 +962,7 @@ uint8_t  WiFi_SetWMODE(char *str)
         delay_ms(1);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
+            delay_ms(5);  //等待数据接收完毕
             break;
         }
         else
@@ -988,6 +1003,7 @@ uint8_t  WiFi_SetSLPTYPE(char *str)
         delay_ms(1);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
+            delay_ms(5);  //等待数据接收完毕
             break;
         }
         else
@@ -1030,6 +1046,7 @@ uint8_t  WiFi_SetWANN(char *str)
         delay_ms(1);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
+            delay_ms(5);  //等待数据接收完毕
             break;
         }
         else
@@ -1092,22 +1109,7 @@ uint8_t  WiFi_SetWifiConfig(GlobalData_Para *globaldata_p)
 }
 
 static uint16_t buff_ptr=0,valid_data_length=0;
-uint8_t  WiFi_GetUDPData(void)
-{
-    uint16_t time_out_cnt = 0;
-    printf("Get wifi UDP cnt is %d\n",wireless_rx_cnt);
-    if(wireless_rx_cnt>0)
-    {
-        __disable_irq();
-        //Led_Open();    
-        memcpy(wireless_process_buff + buff_ptr + valid_data_length, wireless_rx_buff, wireless_rx_cnt);
-        wireless_rx_cnt = 0;
-        //Led_Close();
-        __enable_irq();
-        //printf("Get wifi UDP cnt is %d\n",wireless_rx_cnt);
-    }
-    return 1;
-}
+
 
 /*
 uint8_t WireLess_Send_data(Node_Instru_Packet *node_instru_packet,uint32_t len )
@@ -1215,7 +1217,7 @@ uint8_t WiFi_Send_Report_new(Node_Report_Packet *node_instru_packet)
     __enable_irq();
     printf("Send report to server\n");
     memset((void *)node_instru_packet,0,sizeof(Node_Instru_Packet));
-    for(i=0;i<6000;i++)   //wait 3S
+    for(i=0;i<6000;i++)   //wait 6S
     {
         delay_ms(1);
         if(wireless_rx_cnt>=sizeof(Node_Instru_Packet))

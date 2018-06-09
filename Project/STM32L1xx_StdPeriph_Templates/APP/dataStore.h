@@ -21,7 +21,39 @@
 #define BIT_13                ((uint16_t)0x2000)  /*!< Pin 13 selected */
 #define BIT_14                ((uint16_t)0x4000)  /*!< Pin 14 selected */
 #define BIT_15                ((uint16_t)0x8000)  /*!< Pin 15 selected */
+/***************/
+#define UE_REST_SELF_PERIOD30S      (24*60*2)  //节点自我复位的时间
 
+
+
+#define   DETECTION_DEBUG
+
+
+#ifdef DETECTION_DEBUG
+#define UE_SLEEP_TIME_S         10
+
+#define UE_UPDATE_DATA_30S_NUM  6              //上报实时数据的间隔  
+#define UE_UPDATE_DATA_30S_EMERGENCY_NUM  2     //警报模式 上报实时数据的间隔
+
+#define UE_UPDATE_DATA_PERIOD_EMERGENCY_NUM  2*UE_UPDATE_DATA_30S_EMERGENCY_NUM     //警报模式 上报实时数据的间隔 持续的间隔数目
+#define UE_UPDATE_DATA_PERIOD_PRETECION_NUM  1*UE_UPDATE_DATA_30S_EMERGENCY_NUM    //保护模式 上报实时数据的间隔 下 持续的间隔数目 12*30
+
+#define ACCELEBRATION_THRESHOLD_DEFALUT  1000
+#define TEMPERATURE_THRESHOLD_DEFALUT    (30<<4)
+
+#else  // realeas mode
+#define UE_SLEEP_TIME_S         30
+
+#define UE_UPDATE_DATA_30S_NUM  20               //上报实时数据的间隔  
+#define UE_UPDATE_DATA_30S_EMERGENCY_NUM      2  //警报模式 上报实时数据的间隔
+
+#define UE_UPDATE_DATA_PERIOD_EMERGENCY_NUM   10*UE_UPDATE_DATA_30S_EMERGENCY_NUM //警报模式 上报实时数据的间隔 持续的间隔数目
+#define UE_UPDATE_DATA_PERIOD_PRETECION_NUM   12*UE_UPDATE_DATA_30S_NUM          //保护模式 上报实时数据的间隔 下 持续的间隔数目 12*30
+
+#define ACCELEBRATION_THRESHOLD_DEFALUT  1000
+#define TEMPERATURE_THRESHOLD_DEFALUT    (65<<4)
+
+#endif
 
 
 #define  ADC_OFFSET_DEFAULT 0
@@ -39,9 +71,12 @@ typedef struct {
     int16_t   ADC_OFFSET;         //终端adc偏移
     int16_t   ADC_LEN;            //终端adc长度 N*1024
     int16_t   ADC_Speed;            //终端adc 采样率
+    int16_t   ADC_threshold;      //adc 阈值
+    int16_t   temperature_threshold;      //温度阈值
     uint8_t   boot_flag;          //初始化标识
-    uint8_t   CRC_;
     uint32_t  dummy;
+    uint8_t   CRC_;
+
 }GlobalData_Para;
 
 GlobalData_Para* GetGlobalData(void);
@@ -54,5 +89,9 @@ void SetADCLen(uint16_t Len);
 uint8_t* GetWifiSSID(void);
 void SetADCSpeed(uint16_t speed); 
 uint16_t GetADCSpeed(void);  
+void Set_Node_Temperature_threshold(int16_t temp);
+void Set_Node_accelebration_threshold(uint16_t temperature_threshold);
+int16_t Get_Node_Temperature_threshold(void);
+uint16_t Get_Node_accelebration_threshold(void);
 
 #endif

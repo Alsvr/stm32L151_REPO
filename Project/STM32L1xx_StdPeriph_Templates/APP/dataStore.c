@@ -32,8 +32,11 @@ uint8_t Init_GlobalData()
     CC2530_Global_Para.ADC_LEN = ADC_LEN_DEFAULT;
     CC2530_Global_Para.ADC_Speed = ADC_SPEED_DEFAULT;
     CC2530_Global_Para.boot_flag=BOOT_ALREADY;
-    CC2530_Global_Para.CRC_=0;
     CC2530_Global_Para.node_num= NODE_NUM;
+    CC2530_Global_Para.dummy =0 ;
+    CC2530_Global_Para.ADC_threshold =ACCELEBRATION_THRESHOLD_DEFALUT;
+    CC2530_Global_Para.temperature_threshold = TEMPERATURE_THRESHOLD_DEFALUT;
+    CC2530_Global_Para.CRC_=0;
     memcpy(CC2530_Global_Para.ssid,"985E",5);
     //CC2530_Global_Para.ssid ="985E";
     return 1;
@@ -157,6 +160,18 @@ uint8_t Get_Node_NUM(void)
     
 }
 
+int16_t Get_Node_Temperature_threshold(void)
+{
+    return CC2530_Global_Para.temperature_threshold;
+    
+}
+
+uint16_t Get_Node_accelebration_threshold(void)
+{
+    return CC2530_Global_Para.ADC_threshold;
+    
+}
+
 uint8_t Set_Node_NUM(uint8_t num)
 {
     CC2530_Global_Para.node_num= num;
@@ -173,13 +188,24 @@ uint8_t* GetWifiSSID(void)
     return CC2530_Global_Para.ssid;
 }
 
+void Set_Node_Temperature_threshold(int16_t temp)
+{
+   CC2530_Global_Para.temperature_threshold = temp;
+    
+}
+
+void Set_Node_accelebration_threshold(uint16_t temperature_threshold)
+{
+    CC2530_Global_Para.ADC_threshold = temperature_threshold;
+    
+}
+
 
 uint8_t SetGlobalData(void)
 {
     uint16_t i=0;
     uint8_t *p=(uint8_t *)&CC2530_Global_Para;
-    printf("SetGlobalData siid is %s",CC2530_Global_Para.ssid);
-    printf("SetGlobalData node is %d",CC2530_Global_Para.node_num);
+    printf("sizeof(CC2530_Global_Para)%d",sizeof(CC2530_Global_Para));
     CC2530_Global_Para.CRC_=0;
     // 更新CRC累加和
     for(i=0;i<(sizeof(CC2530_Global_Para)-1);i++)

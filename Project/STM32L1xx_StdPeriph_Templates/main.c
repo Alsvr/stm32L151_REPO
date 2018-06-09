@@ -50,37 +50,13 @@
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 //doneload cmd
-//#define   DETECTION_DEBUG
 
-#define AUTO_UPLOAD_ADC_MAX_CNT 30 
+
+#define AUTO_UPLOAD_ADC_MAX_CNT 1 
 #define REALTIME_DATA_SIE       32 
 
 
-#ifdef DETECTION_DEBUG
-#define UE_SLEEP_TIME_S         10
 
-#define UE_UPDATE_DATA_30S_NUM  20              //上报实时数据的间隔  
-#define UE_UPDATE_DATA_30S_EMERGENCY_NUM  2     //警报模式 上报实时数据的间隔
-
-#define UE_UPDATE_DATA_PERIOD_EMERGENCY_NUM  2*UE_UPDATE_DATA_30S_EMERGENCY_NUM     //警报模式 上报实时数据的间隔 持续的间隔数目
-#define UE_UPDATE_DATA_PERIOD_PRETECION_NUM  1*UE_UPDATE_DATA_30S_EMERGENCY_NUM    //保护模式 上报实时数据的间隔 下 持续的间隔数目 12*30
-
-#define ACCELEBRATION_THRESHOLD_DEFALUT  1000
-#define TEMPERATURE_THRESHOLD_DEFALUT    (28<<4)
-
-#else  // realeas mode
-#define UE_SLEEP_TIME_S         30
-
-#define UE_UPDATE_DATA_30S_NUM  20               //上报实时数据的间隔  
-#define UE_UPDATE_DATA_30S_EMERGENCY_NUM      2  //警报模式 上报实时数据的间隔
-
-#define UE_UPDATE_DATA_PERIOD_EMERGENCY_NUM   10*UE_UPDATE_DATA_30S_EMERGENCY_NUM //警报模式 上报实时数据的间隔 持续的间隔数目
-#define UE_UPDATE_DATA_PERIOD_PRETECION_NUM   12*UE_UPDATE_DATA_30S_NUM          //保护模式 上报实时数据的间隔 下 持续的间隔数目 12*30
-
-#define ACCELEBRATION_THRESHOLD_DEFALUT  1000
-#define TEMPERATURE_THRESHOLD_DEFALUT    (65<<4)
-
-#endif
 
 #define UE_DETECTION_NORMAL_MODE     0x00
 #define UE_DETECTION_EMERGENCY_MODE  0x01
@@ -120,6 +96,15 @@ static uint8_t  first_boot=0;
 
 static uint16_t power_rate;
 static uint16_t udp_index=0;
+
+//记录未收到服务器反馈的总次数
+static uint32_t ser_nack_count=0;
+//记录收到服务器反馈的总次数
+static uint32_t ser_ack_count=0;
+
+
+//节点工作的持续时间
+static uint32_t cpu_active_time_30S = 0;
 
 //uint8_t Rx[1024];
 short temp;
@@ -162,25 +147,19 @@ uint8_t App_get_RealtimeData(RealData_TypeDef *realtime_data_p);
 
 void TaskHandler(Server_Instru_Packet *server_instru_packet)
 {
-//    uint32_t cmd;
     uint16_t adc_len=0;
     uint16_t adc_speed=0;
-    //Server_Instru_Packet *server_instru_packet;
 
-    //server_instru_packet = (Server_Instru_Packet *)node_instru_packet;
-
-    printf("re node_instru_packet.ADC_sample is   0x%d\n",server_instru_packet->adc_valid);
-    printf("re node_instru_packet.Set_adc is 0x%d\n",server_instru_packet->adc_config_valid);
-    printf("re node_instru_packet.Con_sample is 0x%d\n",server_instru_packet->continue_sample_valid);
-    printf("re node_instru_packet.Power_sample is 0x%d\n",server_instru_packet->power_sample_valid);
-    printf("re node_instru_packet.Set threshold is 0x%d\n",server_instru_packet->thres_hold_valid[0]);
-    printf("re node_instru_packet.node_addr is 0x%d\n",server_instru_packet->node_addr);
+    printf("ser adc_valid: %d\n",server_instru_packet->adc_valid);
+    printf("ser adc_set_valid: %d\n",server_instru_packet->adc_config_valid);
+    printf("ser Con_sample valid: 0x%d\n",server_instru_packet->continue_sample_valid);
+    printf("ser power sample valid: 0x%d\n",server_instru_packet->power_sample_valid);
+    printf("ser thres set valid: 0x%d\n",server_instru_packet->thres_hold_valid[0]);
+    printf("ser node: 0x%d\n",server_instru_packet->node_addr);
                     
     if((server_instru_packet->adc_config_valid)&SERVER_TO_NODE_CMD_SET_ADC)
     {
-
-
-        adc_speed = server_instru_packet->adc_len[0] + (server_instru_packet->adc_len[1]<<8);//server_instru_packet-> node_instru_packet->data[2]+(node_instru_packet->data[3]<<8);
+        adc_speed = server_instru_packet->adc_len[0] + (server_instru_packet->adc_len[1]<<8);
         printf("get adc len is %d,sp is %d\n",adc_len,adc_speed);
          switch(adc_speed)
         {
@@ -221,10 +200,12 @@ void TaskHandler(Server_Instru_Packet *server_instru_packet)
         //get temp threshold
         temperature_threshold_g = server_instru_packet->thres_hold_temperature[0]+(server_instru_packet->thres_hold_temperature[1]<<8);  
         printf("Threshold set temp is%d，acc is%d\n",temperature_threshold_g,acceleration_threshlod_g);
+        Set_Node_Temperature_threshold(temperature_threshold_g);
+        Set_Node_accelebration_threshold(acceleration_threshlod_g);
+        SetGlobalData();
     }
     if(((server_instru_packet->adc_valid) & SERVER_TO_NODE_CMD_START_ADC) ||
-        auto_upload_adc_cnt>=AUTO_UPLOAD_ADC_MAX_CNT ||
-        normal_detection_state == UE_DETECTION_EMERGENCY_MODE)
+        auto_upload_adc_cnt >= AUTO_UPLOAD_ADC_MAX_CNT)
     {
             ADS869x_Start_Sample();
             WireLess_Send_ADC_data();
@@ -260,16 +241,17 @@ uint8_t ConnetTheWifiServer()
     return Wireless_Get_link_status();
 #endif
 }
-void App_Variable_Init()
+void App_Variable_Init(GlobalData_Para* globaldata_p)
 {
     realtime_data_cnt = 0;
 //    flag_to_start_wifi_trans =0;
     ue_update_date_cnt_30s = UE_UPDATE_DATA_30S_NUM ;
     normal_detection_state = UE_DETECTION_NORMAL_MODE;
 
-    temperature_threshold_g = TEMPERATURE_THRESHOLD_DEFALUT;
-    acceleration_threshlod_g = ACCELEBRATION_THRESHOLD_DEFALUT;
-
+    temperature_threshold_g = globaldata_p->temperature_threshold;
+    acceleration_threshlod_g = globaldata_p->ADC_threshold;
+    ser_ack_count =0;
+    ser_nack_count =0;
 }
 int main(void)
 {
@@ -286,7 +268,7 @@ int main(void)
     Node_Report_Packet node_report_packet;
     RealData_TypeDef *realtime_data_p=&realtime_data_g;
     GlobalData_Para *globaldata_p;
-    App_Variable_Init();
+    
     PowerControl_Init();
     To_Exit_Stop();
     //void globaldata_p;
@@ -295,9 +277,11 @@ int main(void)
     ADXL362_DeInit();
     Led_Open();
     Uart_Log_Configuration();
+    printf("Node Power On good luck!\r\n");
     delay_init(32);
     FM25VXX_Init();
     globaldata_p=GetGlobalData();
+    App_Variable_Init(globaldata_p);
     printf("Please enter AT Config AT+CONFIG\r\n");
     delay_ms(2000);
     Led_Close();
@@ -307,17 +291,17 @@ int main(void)
     while(1){}
 #endif
     RTC_Config(UE_SLEEP_TIME_S);
+    //立即触发采样
     auto_upload_adc_cnt = AUTO_UPLOAD_ADC_MAX_CNT;
     while(1)
     {
-        printf("*********Node %d wake up*********\n",globaldata_p->node_num);
+        printf("**Node %d wake up ack %d,nack %d **\n",globaldata_p->node_num,ser_ack_count,ser_nack_count);
         PowerControl_Init();
         if(!DS18B20_ReadTempStep1())
             printf("temp step1 fail!\n");
         
         Led_Init();
         Led_Open();
-        
         
         delay_ms(1000);
         realtime_num = App_get_RealtimeData(realtime_data_p);
@@ -353,16 +337,19 @@ int main(void)
                     
                     //根据收到的命令执行相应的命令
                     TaskHandler((Server_Instru_Packet *)&node_report_packet);
+                    ser_ack_count++;
                 }
                 else
                 {
                     printf("Don't get the Sever response!\n");
-                    
+                    ser_nack_count++;
+
                 }
             }
             else
             {
                 printf("WIFI AP is miss\n");
+
                 
             }
             WiFi_EnterPowerDownMode(); 
@@ -374,7 +361,15 @@ int main(void)
 #if 1
          //进入休眠模式 30s
          Enter_Stop_Mode(); //30S
-         To_Exit_Stop(); 
+         To_Exit_Stop();
+         cpu_active_time_30S++;
+         if(cpu_active_time_30S>=UE_REST_SELF_PERIOD30S)
+         {
+               __disable_irq();
+               NVIC_SystemReset();
+
+         }
+          
 #else
          for(delay_i=0;delay_i<20;delay_i++)
          {
@@ -397,18 +392,17 @@ uint8_t App_get_RealtimeData(RealData_TypeDef *realtime_data_p)
     //读取实时加速度
     ADS869x_Start_Sample_little(&acurrent_cceleration_value);
     //读取实时温度
-    current_temp_value =DS18B20_ReadTempStep2();  //读取温度
+    current_temp_value =DS18B20_ReadTempStep2();
 
-
-    
-    
-
-    printf("The detection Mode is %d，distance to report is%d\n",
+    printf("detection Mode is %d，distance to report is%d\n",
         normal_detection_state,
         ue_update_date_cnt_30s-realtime_data_cnt);
+    
+    //将本次的实时数据存入数组
     realtime_data_p->temperature_data[realtime_data_cnt] = current_temp_value;
     realtime_data_p->acceleration_data[realtime_data_cnt] = acurrent_cceleration_value;
-    
+
+   //打印当前的温度值和加速度实时值和阈值
     printf("current temp is %f ^C,limit is %f\n",
         realtime_data_p->temperature_data[realtime_data_cnt]* 0.0625,
         temperature_threshold_g*0.0625);
@@ -433,6 +427,8 @@ uint8_t App_get_RealtimeData(RealData_TypeDef *realtime_data_p)
             ue_update_date_cnt_30s = UE_UPDATE_DATA_30S_EMERGENCY_NUM;  //上报间隔次数
             normal_detection_state = UE_DETECTION_EMERGENCY_MODE;  //更新模式
             ue_emergency_state_cnt = 0;  //emergency mode计数复位
+            //立即触发采样 
+            auto_upload_adc_cnt = AUTO_UPLOAD_ADC_MAX_CNT;
             realtime_data_cnt=0;
         }
     }
@@ -491,9 +487,10 @@ uint8_t  App_Send_ReportData(RealData_TypeDef *realtime_data_p ,
     //power
     node_report_packet->power[0] = bat_power&0xff;
     node_report_packet->power[1] =(bat_power>>8)&0xff;
-    //threshold num
+    //填充实时数据的个数
     if(threshold_num>REALTIME_DATA_SIE)
         threshold_num=REALTIME_DATA_SIE;
+    
     node_report_packet->temp_adc_num[0] =threshold_num&0xff;
     node_report_packet->temp_adc_num[1] =(threshold_num>>8)&0xff;
     

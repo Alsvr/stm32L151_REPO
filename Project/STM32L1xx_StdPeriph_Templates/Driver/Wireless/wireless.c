@@ -666,7 +666,7 @@ void Init_CC3200(uint8_t first,
     if(first)
     {
         Wireless_power_on();
-        delay_ms(1000);
+        delay_ms(2000);
         WiFi_Enter_CMD_mode();
         //WiFi_Reset_factry();
         //delay_ms(3000);

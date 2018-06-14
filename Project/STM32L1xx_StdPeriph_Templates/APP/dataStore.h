@@ -26,7 +26,7 @@
 
 
 
-#define   DETECTION_DEBUG
+//#define   DETECTION_DEBUG
 
 
 #ifdef DETECTION_DEBUG

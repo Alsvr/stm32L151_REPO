@@ -24,7 +24,7 @@ static uint8_t uart2_buffer[64];
 static uint8_t uart2_cnt = 0;
 
 
-#define WIFI_WAIT_AT_BACK_DELAY 1000 //100ms
+#define WIFI_WAIT_AT_BACK_DELAY 1000 // * 1ms
 #define WIFI_WAIT_LINK_READY 8000 //5000ms
 
 #define WIFI_WAIT_LINK_OK_DELAY 12 //times
@@ -98,7 +98,7 @@ void Wireless_Config_mode(void)
 void Wireless_power_down(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
-    //GPIO_SetBits(GPIOB,POWER_GPIO);
+    GPIO_SetBits(GPIOB,POWER_GPIO);
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB|RCC_AHBPeriph_GPIOA, ENABLE);
     /* Power config*/
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
@@ -108,7 +108,7 @@ void Wireless_power_down(void)
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1|GPIO_Pin_3;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1|GPIO_Pin_3|GPIO_Pin_2;
     GPIO_Init(GPIOA, &GPIO_InitStructure);  
 
 }
@@ -157,7 +157,6 @@ uint8_t Wireless_Get_link_status(void)
 
 void Wireless_power_on(void)
 {
- 
   GPIO_ResetBits(GPIOB,POWER_GPIO);
 }
 
@@ -332,7 +331,7 @@ uint8_t WiFi_GetWifiStatus(void)
     uint16_t time_out_cnt = 0;
 
     __disable_irq();
-        At_cmd_state = AT_CMD_WAIT_AT_BACK;
+    At_cmd_state = AT_CMD_WAIT_AT_BACK;
     Send_At_Cmd(AT_WSLK,strlen(AT_WSLK));    
 
     __enable_irq(); 
@@ -451,7 +450,7 @@ uint8_t WiFi_Reset_factry(void)
     time_out_cnt = 0;
     do
     {
-        delay_ms(10);
+        delay_ms(1);
         if(At_cmd_state == AT_CMD_WAIT_AT_BACK_PASS)
         {
             delay_ms(5);  //等待数据接收完毕
@@ -658,34 +657,26 @@ void Init_CC3200(uint8_t first,
     /* Power config*/
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
+    GPIO_InitStructure.GPIO_Pin = POWER_GPIO;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
-   
+    Wireless_power_on();
     //enter cmd 
     if(first)
     {
         Wireless_power_on();
-        delay_ms(2000);
-        WiFi_Enter_CMD_mode();
-        //WiFi_Reset_factry();
-        //delay_ms(3000);
-        //WiFi_Enter_CMD_mode();
-        WiFi_SetWifiConfig(0);
         delay_ms(1000);
+        WiFi_Enter_CMD_mode();
+        WiFi_SetWifiConfig(0);
+        delay_ms(10);
         Reset_CC3200();
-        //WiFi_Exit_CMD_mode();
-        //delay_ms(3000);
     }
     else
     {   
-        //WiFi_Enter_CMD_mode();
         Reset_CC3200();
         delay_ms(1000);
-        
     }
-    //delay_ms(1000);
-    //delay_ms(1000);
+
 }
 
 void init_wireless(uint8_t HEAD,

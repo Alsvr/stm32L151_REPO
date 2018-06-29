@@ -268,6 +268,15 @@ int main(void)
     Node_Report_Packet node_report_packet;
     RealData_TypeDef *realtime_data_p=&realtime_data_g;
     GlobalData_Para *globaldata_p;
+
+    /* Check if the system has resumed from WWDG reset */
+    if (RCC_GetFlagStatus(RCC_FLAG_WWDGRST) != RESET)
+    { 
+        /* WWDGRST flag set */
+        /* Clear reset flags */
+        RCC_ClearFlag();
+    }
+    delay_init(32);
     
     PowerControl_Init();
     To_Exit_Stop();
@@ -278,7 +287,7 @@ int main(void)
     Led_Open();
     Uart_Log_Configuration();
     printf("Node Power On good luck!\r\n");
-    delay_init(32);
+
     FM25VXX_Init();
     globaldata_p=GetGlobalData();
     App_Variable_Init(globaldata_p);
@@ -292,9 +301,16 @@ int main(void)
 #endif
     RTC_Config(UE_SLEEP_TIME_S);
     //立即触发采样
-    auto_upload_adc_cnt = AUTO_UPLOAD_ADC_MAX_CNT;
+    //auto_upload_adc_cnt = AUTO_UPLOAD_ADC_MAX_CNT;
     while(1)
     {
+        /* Check if the system has resumed from WWDG reset */
+        if (RCC_GetFlagStatus(RCC_FLAG_WWDGRST) != RESET)
+        { 
+            /* WWDGRST flag set */
+            /* Clear reset flags */
+            RCC_ClearFlag();
+        }
         printf("**Node %d wake up ack %d,nack %d **\n",globaldata_p->node_num,ser_ack_count,ser_nack_count);
         PowerControl_Init();
         if(!DS18B20_ReadTempStep1())
@@ -313,7 +329,7 @@ int main(void)
             realtime_num=1;
             first_boot=1;
         }
-        if(realtime_num)
+        if(realtime_num)  //满足上传信息的要求
         {
             Init_CC3200(first_init_wifi,115200);  //
             first_init_wifi=0;

@@ -651,6 +651,7 @@ void Init_CC3200(uint8_t first,
     uint8_t i=0 ,re =0;
     uint8_t * at_p=0;
     GPIO_InitTypeDef GPIO_InitStructure;
+    printf("power on wifi\n");
     wire_less_uart_init(baund);
 
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);

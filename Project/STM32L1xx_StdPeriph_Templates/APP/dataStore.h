@@ -22,7 +22,7 @@
 #define BIT_14                ((uint16_t)0x4000)  /*!< Pin 14 selected */
 #define BIT_15                ((uint16_t)0x8000)  /*!< Pin 15 selected */
 /***************/
-#define UE_REST_SELF_PERIOD30S      (24*60*2)  //节点自我复位的时间
+#define UE_REST_SELF_PERIOD30S      (12*60*2)  //节点自我复位的时间
 
 
 

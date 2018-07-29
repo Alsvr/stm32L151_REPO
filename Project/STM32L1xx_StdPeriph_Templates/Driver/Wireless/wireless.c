@@ -98,7 +98,7 @@ void Wireless_Config_mode(void)
 void Wireless_power_down(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
-    GPIO_SetBits(GPIOB,POWER_GPIO);
+    //GPIO_SetBits(GPIOB,POWER_GPIO);
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB|RCC_AHBPeriph_GPIOA, ENABLE);
     /* Power config*/
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
@@ -108,7 +108,7 @@ void Wireless_power_down(void)
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1|GPIO_Pin_3|GPIO_Pin_2;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1|GPIO_Pin_3;
     GPIO_Init(GPIOA, &GPIO_InitStructure);  
 
 }
@@ -661,7 +661,7 @@ void Init_CC3200(uint8_t first,
     GPIO_InitStructure.GPIO_Pin = POWER_GPIO;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
-    Wireless_power_on();
+    //Wireless_power_on();
     //enter cmd 
     if(first)
     {

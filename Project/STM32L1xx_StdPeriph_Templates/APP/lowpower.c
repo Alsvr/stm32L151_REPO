@@ -8,20 +8,21 @@ void Enter_Stop_Mode(void)
 	
 	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA|RCC_AHBPeriph_GPIOB|RCC_AHBPeriph_GPIOC|RCC_AHBPeriph_GPIOH,ENABLE);
 	
-	//DBGMCU_Config(DBGMCU_STOP,ENABLE);
+	DBGMCU_Config(DBGMCU_STOP,ENABLE);
 	
     //RCC_AHBPeriphClockLPModeCmd(RCC_AHBPeriph_GPIOA,ENABLE);
 	
     GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_All;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_40MHz;
-    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AIN;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_400KHz;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AN;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
 	
     GPIO_Init(GPIOC, &GPIO_InitStructure); 
 	GPIO_Init(GPIOH, &GPIO_InitStructure);
 	
 	
-	
+	//wifi power down
 	//Wireless enter low power 
 //433M AUX --->PA1
 //433M_MO  --->PB8
@@ -31,9 +32,19 @@ void Enter_Stop_Mode(void)
 //433M_RX  --->PA3
     GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_All&(~(GPIO_Pin_1|GPIO_Pin_2|GPIO_Pin_3|GPIO_Pin_9|GPIO_Pin_10));
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
+    
     GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_All&(~(GPIO_Pin_8|GPIO_Pin_9|GPIO_Pin_10));
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 	
+    
+    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_7;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    
+
+//     GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_11;
+//     GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IN;
+//     GPIO_Init(GPIOA, &GPIO_InitStructure);
+    
 	/* Enable Wakeup Counter */
 	RTC_WakeUpCmd(ENABLE);
 	PWR_EnterSTOPMode(PWR_Regulator_LowPower, PWR_STOPEntry_WFI);

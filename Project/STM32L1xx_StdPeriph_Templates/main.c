@@ -301,7 +301,7 @@ int main(void)
 #endif
     RTC_Config(UE_SLEEP_TIME_S);
     //立即触发采样
-    //auto_upload_adc_cnt = AUTO_UPLOAD_ADC_MAX_CNT;
+    auto_upload_adc_cnt = AUTO_UPLOAD_ADC_MAX_CNT;
     while(1)
     {
         /* Check if the system has resumed from WWDG reset */

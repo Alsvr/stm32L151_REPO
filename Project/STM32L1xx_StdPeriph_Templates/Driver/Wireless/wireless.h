@@ -58,6 +58,15 @@ typedef struct{
 }Node_Instru_Packet;
 
 
+
+#define SERVER_TO_NODE_CMD_ADC_LEN_4S   0x01
+#define SERVER_TO_NODE_CMD_ADC_LEN_8S   0x02
+#define SERVER_TO_NODE_CMD_ADC_LEN_16S  0x03
+
+#define SERVER_TO_NODE_CMD_ADC_SPEED_1K   0x01
+#define SERVER_TO_NODE_CMD_ADC_SPEED_2K   0x02
+#define SERVER_TO_NODE_CMD_ADC_SPEED_4K   0x03
+
 typedef struct{
     unsigned char header1;
     unsigned char header2;
@@ -68,8 +77,8 @@ typedef struct{
     unsigned char adc_config_valid;
     unsigned char continue_sample_valid;
     unsigned char power_sample_valid;
-    unsigned char adc_len[2];
-    unsigned char adc_speed[2];
+    unsigned char adc_len[2];  //表示ADC采集的时间长度
+    unsigned char adc_speed[2];//表示ADC采集的速度
     unsigned char adc_continue_packet[2];
     unsigned char thres_hold_valid[2];
     unsigned char thres_hold_accelebration[2];

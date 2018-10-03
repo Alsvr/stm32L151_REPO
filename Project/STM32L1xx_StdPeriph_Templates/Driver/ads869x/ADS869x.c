@@ -505,7 +505,7 @@ void ADS869x_Start_Sample(void)
     FM25VXX_Init();
     ignore_num=0;
     buffer_cnt = 0;
-    Timinit(GetADCSpeed());
+    Timinit(DataStoreGetADCSpeed());
     //    开始等待ADC数据采集完成
     for(send_pkt=0;;)  //为了不死在这个死循环里面
     {

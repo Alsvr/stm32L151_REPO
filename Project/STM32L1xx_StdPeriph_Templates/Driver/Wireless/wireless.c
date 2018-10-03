@@ -1233,10 +1233,12 @@ uint8_t WiFi_Send_Report_new(Node_Report_Packet *node_instru_packet)
 uint8_t WireLess_Send_ADC_data(void)
 {
     uint16_t i = 0,snd_pkt,adc_packet_len;
+    uint16_t adc_packet_speed;
     uint8_t *p=0;
     uint16_t *P_int16=0;
     Node_Instru_Packet node_instru_packet;
     adc_packet_len= Get_ADC_LEN();
+    adc_packet_speed = DataStoreGetADCSpeed()/1000;
     p=(uint8_t *)&node_instru_packet;
     printf("start send data to server!\n");
     node_instru_packet.instru= NODE_TO_SERVER_INST_ADC_DATA;
@@ -1246,6 +1248,7 @@ uint8_t WireLess_Send_ADC_data(void)
     node_instru_packet.commend1 = 0x00;
     node_instru_packet.commend2 = 0x00;
     node_instru_packet.commend3 = 0x00;
+    node_instru_packet.commend4 = adc_packet_speed;
     node_instru_packet.tail1=NODE_INSTRU_TAIL1;
     node_instru_packet.tail2=NODE_INSTRU_TAIL2;
     P_int16 =(uint16_t *)node_instru_packet.data;
@@ -1255,7 +1258,7 @@ uint8_t WireLess_Send_ADC_data(void)
         FM25VXX_Read(node_instru_packet.data,snd_pkt*ADC_PACKET_SIZE,ADC_PACKET_SIZE);
         p=(uint8_t *)&node_instru_packet;
         P_int16 =(uint16_t *)node_instru_packet.data;
-        node_instru_packet.commend1=(snd_pkt>>8)&0xff;  
+        node_instru_packet.commend1=((snd_pkt>>8)&0xff); 
         node_instru_packet.commend2=(snd_pkt)&0xff; 
 
         if(snd_pkt==(adc_packet_len-1)){

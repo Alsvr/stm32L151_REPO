@@ -150,49 +150,97 @@ void TaskHandler(Server_Instru_Packet *server_instru_packet)
     uint16_t adc_len=0;
     uint16_t adc_speed=0;
 
+    uint16_t adc_len_save=0;
+    uint16_t adc_speed_save=0;
+
     printf("ser adc_valid: %d\n",server_instru_packet->adc_valid);
     printf("ser adc_set_valid: %d\n",server_instru_packet->adc_config_valid);
     printf("ser Con_sample valid: 0x%d\n",server_instru_packet->continue_sample_valid);
     printf("ser power sample valid: 0x%d\n",server_instru_packet->power_sample_valid);
     printf("ser thres set valid: 0x%d\n",server_instru_packet->thres_hold_valid[0]);
     printf("ser node: 0x%d\n",server_instru_packet->node_addr);
-                    
+    //设置adc命令有效                
     if((server_instru_packet->adc_config_valid)&SERVER_TO_NODE_CMD_SET_ADC)
     {
-        adc_speed = server_instru_packet->adc_len[0] + (server_instru_packet->adc_len[1]<<8);
-        printf("get adc len is %d,sp is %d\n",adc_len,adc_speed);
-         switch(adc_speed)
+        //adc_len = server_instru_packet->adc_len[0] + (server_instru_packet->adc_len[1]<<8);
+        adc_len = SERVER_TO_NODE_CMD_ADC_LEN_4S;
+        adc_speed = server_instru_packet->adc_speed[0] + (server_instru_packet->adc_speed[1]<<8);
+        if(adc_len == SERVER_TO_NODE_CMD_ADC_LEN_4S)
         {
-            case 0:
-            case 1:
-                adc_len=64;
-                adc_speed=1000;
-            break;
-            case 2:
-                adc_len=128;
-                adc_speed=2000;
-            break;
-            
-            case 3:
-                adc_len=256;
-                adc_speed=4000;
-            break;
-            default:
-                adc_len=64;
-                adc_speed=1000;
-            break;
+            if(adc_speed == SERVER_TO_NODE_CMD_ADC_SPEED_1K )
+            {
+                adc_len_save = 64;
+                adc_speed_save=1000;
+
+            }
+            else if(adc_speed == SERVER_TO_NODE_CMD_ADC_SPEED_2K )
+            {
+                adc_len_save = 128;
+                adc_speed_save=2000;
+
+            }
+            else if(adc_speed == SERVER_TO_NODE_CMD_ADC_SPEED_4K )
+            {
+                adc_len_save = 256;
+                adc_speed_save=4000;
+
+            }
+            else
+            {
+                adc_len_save = 64;
+                adc_speed_save=1000;
+             }
+       }
+        else if(adc_len == SERVER_TO_NODE_CMD_ADC_LEN_8S)
+        {
+            if(adc_speed == SERVER_TO_NODE_CMD_ADC_SPEED_1K )
+            {
+                adc_len_save = 128;
+                adc_speed_save=1000;
+
+            }
+            else if(adc_speed == SERVER_TO_NODE_CMD_ADC_SPEED_2K )
+            {
+                adc_len_save = 256;
+                adc_speed_save=2000;
+
+            }
+            else
+            {
+                adc_len_save = 64;
+                adc_speed_save=1000;
+             }
+
+       }
+        else if(adc_len == SERVER_TO_NODE_CMD_ADC_LEN_16S)
+        {
+            if(adc_speed == SERVER_TO_NODE_CMD_ADC_SPEED_1K )
+            {
+                adc_len_save = 256;
+                adc_speed_save=1000;
+
+            }
+            else
+            {
+                adc_len_save = 64;
+                adc_speed_save=1000;
+             }
         }
+        else
+        {
+            adc_len_save = 64;
+            adc_speed_save=1000;
 
-        SetADCLen(adc_len);   //传入的是256个16位数据
-        SetADCSpeed(adc_speed);   //传入的是256个16位数据
-        
+        }
+        printf("get adc len is %d,sp is %d\n",adc_len_save,adc_speed_save);
+        DataStoreSetADC(adc_len_save,adc_speed_save);   //传入的是256个16位数据
     }    
-
+    //采集上次数据命令
     if((server_instru_packet->continue_sample_valid)&SERVER_TO_NODE_CMD_CON_SAMP)
     {
         printf("get continue sample cmd\n");
     }
-    
+    //设置报警阈值命令
     if((server_instru_packet->thres_hold_valid[0]) & SERVER_TO_NODE_CMD_SET_THRESHOLD)
     {
         //get adc_threshold 
@@ -204,12 +252,13 @@ void TaskHandler(Server_Instru_Packet *server_instru_packet)
         Set_Node_accelebration_threshold(acceleration_threshlod_g);
         SetGlobalData();
     }
+    //得到采集adc命令
     if(((server_instru_packet->adc_valid) & SERVER_TO_NODE_CMD_START_ADC) ||
         auto_upload_adc_cnt >= AUTO_UPLOAD_ADC_MAX_CNT)
     {
-            ADS869x_Start_Sample();
-            WireLess_Send_ADC_data();
-            auto_upload_adc_cnt=0;
+        ADS869x_Start_Sample(); //开始采集ADC
+        WireLess_Send_ADC_data();//开始发送ADC数据
+        auto_upload_adc_cnt=0;
     }
     
 }
@@ -255,16 +304,15 @@ void App_Variable_Init(GlobalData_Para* globaldata_p)
 }
 int main(void)
 {
-  /*!< At this stage the microcontroller clock setting is already configured, 
+    /*!< At this stage the microcontroller clock setting is already configured, 
        this is done through SystemInit() function which is called from startup
        file (startup_stm32l1xx_xx.s) before to branch to application main.
        To reconfigure the default setting of SystemInit() function, refer to
        system_stm32l1xx.c file
      */  
-//    uint8_t delay_i =0;
-    uint8_t   first_init_wifi=1;
+    uint8_t first_init_wifi=1;
     uint8_t wifi_connect_flag =0;
-    uint8_t  realtime_num=0;
+    uint8_t realtime_num=0;
     Node_Report_Packet node_report_packet;
     RealData_TypeDef *realtime_data_p=&realtime_data_g;
     GlobalData_Para *globaldata_p;
@@ -294,14 +342,19 @@ int main(void)
     printf("Please enter AT Config AT+CONFIG\r\n");
     delay_ms(2000);
     Led_Close();
+    //调试ADC
 #ifdef ADC_DEBUG
-    
     ADS869x_Start_Sample_Debug();
-    while(1){}
+    while(1)
+    {
+
+    }
 #endif
     RTC_Config(UE_SLEEP_TIME_S);
     //立即触发采样
     auto_upload_adc_cnt = AUTO_UPLOAD_ADC_MAX_CNT;
+
+    //ADC_Config();
     while(1)
     {
         /* Check if the system has resumed from WWDG reset */
@@ -319,7 +372,7 @@ int main(void)
         Led_Init();
         Led_Open();
         
-        delay_ms(1000);
+        delay_ms(600);
         realtime_num = App_get_RealtimeData(realtime_data_p);
       
         Led_Close();
@@ -329,14 +382,14 @@ int main(void)
             realtime_num=1;
             first_boot=1;
         }
-        if(realtime_num)  //满足上传信息的要求
+        if(realtime_num)  //满足上传信息的要求 会开启Wifi
         {
-            Init_CC3200(first_init_wifi,115200);  //
+            Init_CC3200(first_init_wifi,115200);  //初始化Wifi，如果是第一次使用Wifi
             first_init_wifi=0;
             //try to connect the wifi server 
-            wifi_connect_flag=ConnetTheWifiServer();
+            wifi_connect_flag=ConnetTheWifiServer(); //连接到路由器
             udp_index++;
-            //Wireless_power_down();
+
             if(wifi_connect_flag)
             {
                 //read power

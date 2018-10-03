@@ -88,7 +88,8 @@ uint8_t SetGlobalData(void);
 void SetADCLen(uint16_t Len);
 uint8_t* GetWifiSSID(void);
 void SetADCSpeed(uint16_t speed); 
-uint16_t GetADCSpeed(void);  
+uint16_t DataStoreGetADCSpeed(void);
+void DataStoreSetADC(uint16_t len, uint16_t speed);   //±£¥Êadcµƒ…Ë÷√
 void Set_Node_Temperature_threshold(int16_t temp);
 void Set_Node_accelebration_threshold(uint16_t temperature_threshold);
 int16_t Get_Node_Temperature_threshold(void);

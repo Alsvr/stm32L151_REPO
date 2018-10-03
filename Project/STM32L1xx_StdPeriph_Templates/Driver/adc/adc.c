@@ -7,7 +7,7 @@
 //ADC_SCLK  PB13
 //ADC_DOUT  PB14
 
-const uint16_t power_rate_list[10]={00,2600,2700,2800,2900,3100,3200,3400,3500,3600};
+const uint16_t power_rate_list[10]={2800,3000,3100,3200,3250,3300,3350,3400,3450,3500};
 
 static uint16_t power_rate;
 static uint32_t power_adc =0;
@@ -30,6 +30,20 @@ uint16_t ADC_Config(void)
   GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AN;
   GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_NOPULL;
   GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+
+
+    //
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOB, ENABLE);
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;//
+    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;//
+    GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_UP;//
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_400KHz;//Ê±ÖÓËÙÂÊ
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    GPIO_ResetBits(GPIOB, GPIO_Pin_7);  
+      
+
 
   /* Check that HSI oscillator is ready */
   while(RCC_GetFlagStatus(RCC_FLAG_HSIRDY) == RESET);
@@ -68,7 +82,7 @@ uint16_t ADC_Config(void)
   while (ADC_GetFlagStatus(ADC1, ADC_FLAG_ADONS) == RESET)
   {
   }
-
+  delay_ms(1);
   /* Start ADC1 Software Conversion */
   ADC_SoftwareStartConv(ADC1);
 
@@ -81,11 +95,11 @@ uint16_t ADC_Config(void)
   }
   adc_value_raw >>=4;
   
-  //printf("Adc mease is %d\n",adc_value_raw);
+  printf("pow meas is %d\n",adc_value_raw);
   
   /**************/
 
-  power_adc=2700*adc_value_raw;
+  power_adc=adc_value_raw;
 
   ADC_RegularChannelConfig(ADC1, ADC_Channel_17, 1, ADC_SampleTime_384Cycles);
 
@@ -110,15 +124,21 @@ uint16_t ADC_Config(void)
       adc_value_raw += ADC_GetConversionValue(ADC1);
   }
   adc_value_raw >>=4;
-  //printf("Adc ref is %d\n",adc_value_raw);
-  //adc_Vrefint_cal = *(__IO uint16_t *)(0X1FF80078);
-  power_adc/=adc_value_raw + 10;
-
+  printf("Adc ref is %d\n",adc_value_raw);
+  adc_Vrefint_cal = *(__IO uint16_t *)(0X1FF80078);
+  adc_value_raw = 3300*adc_Vrefint_cal/adc_value_raw;
+  power_adc = power_adc*adc_value_raw/2048;
+  printf("BAT v is %d\n",adc_Vrefint_cal);
+  //while(2){}
   
 
   ADC_DeInit(ADC1);
 
   RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, DISABLE);
+  
+  
+
+  GPIO_SetBits(GPIOB, GPIO_Pin_7); 
   
   for(i=9;i>=0;i--)
   {
@@ -130,7 +150,7 @@ uint16_t ADC_Config(void)
       }
       
   }
-  
+ 
   return 100;
 
 }

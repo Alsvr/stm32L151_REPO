@@ -140,7 +140,15 @@ void SetADCSpeed(uint16_t speed)   //传入的是256个16位数据
     SetGlobalData();
 }
 
-uint16_t GetADCSpeed(void)   //传入的是256个16位数据
+void DataStoreSetADC(uint16_t len, uint16_t speed)   //保存adc的设置
+{
+    CC2530_Global_Para.ADC_Speed=speed;
+    CC2530_Global_Para.ADC_LEN=len;
+    SetGlobalData();
+}
+
+
+uint16_t DataStoreGetADCSpeed(void)   //传入的是256个16位数据
 {
 
     return CC2530_Global_Para.ADC_Speed;
@@ -205,7 +213,7 @@ uint8_t SetGlobalData(void)
 {
     uint16_t i=0;
     uint8_t *p=(uint8_t *)&CC2530_Global_Para;
-    printf("sizeof(CC2530_Global_Para)%d",sizeof(CC2530_Global_Para));
+    //printf("sizeof(CC2530_Global_Para)%d\n",sizeof(CC2530_Global_Para));
     CC2530_Global_Para.CRC_=0;
     // 更新CRC累加和
     for(i=0;i<(sizeof(CC2530_Global_Para)-1);i++)
